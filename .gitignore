@@ -4,3 +4,6 @@
 .venv/
 __pycache__/
 *.py[cod]
+
+/alphas/**
+!/alphas/.gitkeep
