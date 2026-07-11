@@ -23,8 +23,8 @@ Your task is to propose or refine an alpha.
   a. Devise and run local tests for each alpha.
   b. Simulate each alpha on WorldQuant BRAIN and save the simulation settings and results in `WORKDIR`.
   c. Name every resulting BRAIN alpha `{CANDIDATE_ID}-{LOOP_ID}-{SLUG}`, where `CANDIDATE_ID` is the final component of `WORKDIR` and `SLUG` is a unique, concise, lowercase kebab-case description.
-  d. Rank the alphas by Fitness and eliminate the bottom half. If the number is odd, eliminate `floor(n/2)` alphas.
-  e. Find ways to improve the surviving alphas.
+  d. Rank the alphas by `abs(Fitness)` and eliminate the bottom half. If the number is odd, eliminate `floor(n/2)` alphas.
+  e. Find ways to improve the surviving alphas; if a survivor has negative Fitness, first negate its outermost expression without running an extra Simulation.
   f. Continue until only one alpha remains.
 3. Run the BRAIN submission checks for the final alpha and save the results in `WORKDIR`.
 4. If the alpha fails any check, return to step 1 and repeat the entire workflow.
