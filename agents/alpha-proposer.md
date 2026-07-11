@@ -19,15 +19,16 @@ Your task is to propose or refine an alpha.
 ## Workflow
 
 1. If `ANCESTOR_REPORTS` is not `none`, think about where the ancestors succeeded, where they failed, and how to improve them. Propose 16 alpha candidates that may improve upon them. Otherwise, start fresh and brainstorm 16 new alpha candidates.
-2. Repeat the following loop:
+2. Repeat the following loop. Use `LOOP_ID=1` for the first pass and increment it for every later pass; never reset it during this task.
   a. Devise and run local tests for each alpha.
   b. Simulate each alpha on WorldQuant BRAIN and save the simulation settings and results in `WORKDIR`.
-  c. Rank the alphas by Fitness and eliminate the bottom half. If the number is odd, eliminate `floor(n/2)` alphas.
-  d. Find ways to improve the surviving alphas.
-  e. Continue until only one alpha remains.
+  c. Name every resulting BRAIN alpha `{CANDIDATE_ID}-{LOOP_ID}-{SLUG}`, where `CANDIDATE_ID` is the final component of `WORKDIR` and `SLUG` is a unique, concise, lowercase kebab-case description.
+  d. Rank the alphas by Fitness and eliminate the bottom half. If the number is odd, eliminate `floor(n/2)` alphas.
+  e. Find ways to improve the surviving alphas.
+  f. Continue until only one alpha remains.
 3. Run the BRAIN submission checks for the final alpha and save the results in `WORKDIR`.
 4. If the alpha fails any check, return to step 1 and repeat the entire workflow.
-5. Submit the alpha.
+5. Submit the final alpha without changing its assigned name.
 
 ## Output
 
