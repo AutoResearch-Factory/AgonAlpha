@@ -26,11 +26,12 @@ Complete exactly `ROUNDS` candidate pipelines. Keep at most `parallelism` subage
 For each candidate pipeline:
 
 1. Run `${CLAUDE_PLUGIN_ROOT}/scripts/mcts.py next`, then read `CANDIDATE_ID`, `WORKDIR`, and `ANCESTOR_REPORTS` from its output.
-2. Launch `alpha-proposer` in `WORKDIR` using the configured model and the exact task prompt below.
-3. After the proposer finishes, verify that `<WORKDIR>/alpha.md` exists. If it is missing, resume the proposer once.
-4. Launch `alpha-reviewer` in `WORKDIR` using the configured model and the exact task prompt below.
-5. After the reviewer finishes, read `<WORKDIR>/alpha.md` and extract `FITNESS` from `<review fitness="X">`. If the block or Fitness is missing, resume the reviewer once.
-6. Run `${CLAUDE_PLUGIN_ROOT}/scripts/mcts.py update --candidate-id CANDIDATE_ID --score FITNESS`.
+2. Select reading materials for the proposer by randomly choosing 2 files from the `## 数据集详情` section of `${CLAUDE_PLUGIN_ROOT}/docs/data/INDEX.md`. Resolve the relative links to full paths and report them to the user. Run an actual randomization command; do not choose arbitrarily.
+3. Launch `alpha-proposer` in `WORKDIR` using the configured model and the exact task prompt below.
+4. After the proposer finishes, verify that `<WORKDIR>/alpha.md` exists. If it is missing, resume the proposer once.
+5. Launch `alpha-reviewer` in `WORKDIR` using the configured model and the exact task prompt below.
+6. After the reviewer finishes, read `<WORKDIR>/alpha.md` and extract `FITNESS` from `<review fitness="X">`. If the block or Fitness is missing, resume the reviewer once.
+7. Run `${CLAUDE_PLUGIN_ROOT}/scripts/mcts.py update --candidate-id CANDIDATE_ID --score FITNESS`.
 
 Steps within one candidate pipeline are sequential. Different candidate pipelines may run concurrently. Whenever a pipeline finishes, immediately use the free slot for the next undispatched candidate. Scheduler commands (`next`, and `update`) must be run serially.
 
@@ -38,8 +39,8 @@ Steps within one candidate pipeline are sequential. Different candidate pipeline
 
 Send exactly these task prompts. Do not add advice, analysis, summaries, or extra instructions.
 
-- Alpha Proposer: `CLAUDE_PLUGIN_ROOT: ${CLAUDE_PLUGIN_ROOT}, ANCESTOR_REPORTS: {ANCESTOR_REPORTS}, WORKDIR: {WORKDIR}`
-- Alpha Reviewer: `CLAUDE_PLUGIN_ROOT: ${CLAUDE_PLUGIN_ROOT}, WORKDIR: {WORKDIR}`
+- Alpha Proposer: `ANCESTOR_REPORTS: {ANCESTOR_REPORTS}, WORKDIR: {WORKDIR}, READING_MATERIALS: {FULL_PATHS_OF_THE_2_SELECTED_FILES}, CLAUDE_PLUGIN_ROOT: ${CLAUDE_PLUGIN_ROOT}`
+- Alpha Reviewer: `WORKDIR: {WORKDIR}, CLAUDE_PLUGIN_ROOT: ${CLAUDE_PLUGIN_ROOT}`
 
 ## Cron and idle prevention
 

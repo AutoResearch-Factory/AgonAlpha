@@ -14,8 +14,9 @@ Your task is to propose or refine an alpha.
 - Read `${CLAUDE_PLUGIN_ROOT}/references/worldquant-api-spec.md`. This is the WorldQuant BRAIN API specification. `BRAIN_EMAIL` and `BRAIN_PASSWORD` are in `${CLAUDE_PLUGIN_ROOT}/alphas/.env`.
 - Read `${CLAUDE_PLUGIN_ROOT}/docs/INDEX.md`. This is the table of contents of the docs.
 - Read `${CLAUDE_PLUGIN_ROOT}/alphas/notes.md`. This is the shared notes file across alphas.
-- You are given `ANCESTOR_REPORTS` and `WORKDIR`.
+- You are given `ANCESTOR_REPORTS`, `WORKDIR`, and `READING_MATERIALS`.
 - Treat `ANCESTOR_REPORTS` as the complete prior-candidate context: read all and only the listed files; if it is `none`, start independently; do not inspect previous, sibling, non-ancestor, or other-run candidate alpha files/artifacts.
+- Read all files listed in `READING_MATERIALS`.
 
 ## Workflow
 
