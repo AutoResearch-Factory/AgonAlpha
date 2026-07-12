@@ -4,24 +4,53 @@
 
 # WorldQuant BRAIN 文档归档
 
-每个类别先链接到其子目录；子目录索引再链接到正文、结构化数据和原始归档文件。
-
 ## API
 
-- [API 目录](api/INDEX.md)
+- [API 使用说明](../references/worldquant-api-spec.md)
+- [回测接口 Schema](api/simulations-options.json)
+- [Alpha 接口 Schema](api/alpha-options.json)
+- [Alpha 检查接口 Schema](api/alpha-check-options.json)
+- [Alpha 提交接口 Schema](api/alpha-submit-options.json)
+- [官方 API 搜索结果](api/official-api-search.json)
+- [官方 API 页面访问状态](api/official-page-status.json)
 
 ## 数据
 
-- [数据目录](data/INDEX.md)
+- [数据集目录](data/datasets.md) - 14 个数据集
+- [数据集原始数据](data/datasets.json)
+- [数据分类](data/categories.json)
+- [数据字段目录](data/fields.md) - 4367 个字段
+- [数据字段 CSV](data/fields.csv)
+- [数据字段 JSON](data/fields.json)
+- [数据字段 JSONL](data/fields.jsonl)
+- [14 个数据集详情](data/INDEX.md)
 
 ## 语法
 
-- [语法目录](syntax/INDEX.md)
+- [操作符说明](syntax/operators.md) - 66 个操作符
+- [操作符原始数据](syntax/operators.json)
 
 ## 因子研究
 
-- [因子研究目录](factor-research/INDEX.md)
-- [Tutorial 总目录](tutorials/INDEX.md) - 18 篇, 64 张图片
+- [FAQ](factor-research/faqs.md) - 97 条
+- [推荐阅读](factor-research/recommended-reading.md) - 22 条
+- [研究论文链接](factor-research/research-papers.json) - 14 条
+- [课程文字稿](factor-research/transcripts.md) - 69 篇
+- [课程原始数据](factor-research/video-courses.json)
+- [搜索目录](factor-research/search-catalog.json)
+- [搜索结果](factor-research/search-results.json)
+
+## Tutorials
+
+- [教程目录原始数据](tutorials/catalog.json)
+- [Discover BRAIN](tutorials/discover-brain/) - 7 篇
+- [Create Alphas](tutorials/create-alphas/) - 4 篇
+- [Examples](tutorials/examples/) - 2 篇
+- [Interpret Results](tutorials/interpret-results/) - 2 篇
+- [Understanding Data](tutorials/understanding-data/) - 3 篇
+- [教程图片](tutorials/images/) - 64 张，均由正文引用
+- [原始教程数据](tutorials/raw/) - 17 份
+- [教程文件清单](tutorials/INDEX.md) - 18 篇教程及其原始数据链接
 
 ## 清单
 
