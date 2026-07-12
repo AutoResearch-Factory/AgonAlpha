@@ -20,7 +20,6 @@ __pycache__/
 
 # Ignore the docs directory and all its contents
 bin/
-docs/
 temp/
 CLAUDE.md
 AGENTS.md
