@@ -1,6 +1,6 @@
 # AgonAlpha
 
-AgonAlpha is an agent-based framework for automated alpha discovery. It follows the principles of [Prompt Economy](https://arxiv.org/abs/2606.24177).
+AgonAlpha is an agent-based framework for automated alpha discovery. It follows the principles of [Prompt Economy](https://arxiv.org/abs/2606.08878), implemented through the [Agon](https://arxiv.org/abs/2606.24177) autonomous research architecture.
 
 ## TODO
 
