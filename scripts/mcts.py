@@ -14,8 +14,12 @@ Commands:
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import math
+import os
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 ALPHAS_DIR = (Path(__file__).resolve().parent / "../alphas").resolve()
@@ -37,16 +41,42 @@ def _alpha_path(cid: str) -> Path:
     return _candidate_dir(cid) / "alpha.md"
 
 
+def _lock_path() -> Path:
+    return ALPHAS_DIR / ".state.lock"
+
+
+@contextmanager
+def _state_lock():
+    ALPHAS_DIR.mkdir(parents=True, exist_ok=True)
+    with _lock_path().open("a+") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
 def _load_state() -> dict:
     with _state_path().open() as f:
         return json.load(f)
 
 
 def _save_state(state: dict) -> None:
-    _state_path().write_text(json.dumps(state, indent=2) + "\n")
+    ALPHAS_DIR.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(state, indent=2) + "\n"
+    fd, tmp_name = tempfile.mkstemp(prefix=".state.", suffix=".tmp", dir=ALPHAS_DIR)
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(payload)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, _state_path())
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
-def _new_node(node_id: str, parent: str | None, depth: int, status: str = "open") -> dict:
+def _new_node(node_id: str, parent: str | None, depth: int, status: str) -> dict:
     return {
         "id": node_id,
         "parent": parent,
@@ -86,7 +116,11 @@ def _next_candidate_id(state: dict) -> str:
 def _score_history(state: dict) -> list[float]:
     scores = []
     for cid, node in state["nodes"].items():
-        if cid != ROOT_ID and node.get("score") is not None:
+        if (
+            cid != ROOT_ID
+            and node.get("status") == "done"
+            and node.get("score") is not None
+        ):
             scores.append(float(node["score"]))
     return scores
 
@@ -106,7 +140,7 @@ def _node_rewards(state: dict) -> dict[str, float]:
     scores = _score_history(state)
     rewards: dict[str, float] = {}
     for cid, node in state["nodes"].items():
-        if cid == ROOT_ID or node.get("score") is None:
+        if cid == ROOT_ID or node.get("status") != "done" or node.get("score") is None:
             continue
         rewards[cid] = _percentile_reward(float(node["score"]), scores)
     return rewards
@@ -115,38 +149,109 @@ def _node_rewards(state: dict) -> dict[str, float]:
 def _subtree_reward_sum(state: dict, rewards: dict[str, float], node_id: str) -> float:
     total = rewards.get(node_id, 0.0)
     for child_id in state["nodes"][node_id]["children"]:
-        total += _subtree_reward_sum(state, rewards, child_id)
+        if state["nodes"][child_id].get("status") == "done":
+            total += _subtree_reward_sum(state, rewards, child_id)
     return total
 
 
-def _ucb(state: dict, rewards: dict[str, float], child_id: str, parent_visits: int, c: float) -> float:
+def _pending_counts(state: dict) -> dict[str, int]:
+    nodes = state["nodes"]
+    counts = {node_id: 0 for node_id in nodes}
+    for node_id, node in nodes.items():
+        if node.get("status") != "pending":
+            continue
+        cur: str | None = node_id
+        seen: set[str] = set()
+        while cur is not None:
+            if cur in seen:
+                raise ValueError(f"cycle in parent path: {node_id}")
+            if cur not in nodes:
+                raise ValueError(f"unknown parent in path from: {node_id}")
+            seen.add(cur)
+            counts[cur] += 1
+            cur = nodes[cur]["parent"]
+    return counts
+
+
+def _done_children(state: dict, node_id: str) -> list[str]:
+    nodes = state["nodes"]
+    return [
+        child_id
+        for child_id in nodes[node_id]["children"]
+        if nodes[child_id].get("status") == "done"
+    ]
+
+
+def _has_pending_child(state: dict, node_id: str) -> bool:
+    nodes = state["nodes"]
+    return any(
+        nodes[child_id].get("status") == "pending"
+        for child_id in nodes[node_id]["children"]
+    )
+
+
+def _ucb(
+    state: dict,
+    rewards: dict[str, float],
+    pending_counts: dict[str, int],
+    parent_id: str,
+    child_id: str,
+    c: float,
+) -> float:
     child = state["nodes"][child_id]
     if child["visits"] == 0:
         return float("inf")
     q = _subtree_reward_sum(state, rewards, child_id) / child["visits"]
-    return q + c * math.sqrt(math.log(max(parent_visits, 1)) / child["visits"])
+    parent_samples = state["nodes"][parent_id]["visits"] + pending_counts[parent_id]
+    child_samples = child["visits"] + pending_counts[child_id]
+    return q + c * math.sqrt(math.log(max(parent_samples, 1)) / child_samples)
 
 
-def _should_widen(node: dict, pw_k: float, pw_alpha: float) -> bool:
-    return len(node["children"]) < pw_k * (max(node["visits"], 1) ** pw_alpha)
+def _should_widen(
+    state: dict,
+    pending_counts: dict[str, int],
+    node_id: str,
+    pw_k: float,
+    pw_alpha: float,
+) -> bool:
+    node = state["nodes"][node_id]
+    done_child_count = len(_done_children(state, node_id))
+    samples = node["visits"] + pending_counts[node_id]
+    return done_child_count < pw_k * (max(samples, 1) ** pw_alpha)
 
 
 def _select_parent(state: dict) -> str:
-    nodes = state["nodes"]
     rewards = _node_rewards(state)
+    pending_counts = _pending_counts(state)
     c = state["config"]["ucb_c"]
     pw_k = state["config"]["pw_k"]
     pw_alpha = state["config"]["pw_alpha"]
 
-    cur_id = ROOT_ID
-    while True:
-        cur = nodes[cur_id]
-        if _should_widen(cur, pw_k, pw_alpha):
-            return cur_id
-        if not cur["children"]:
-            return cur_id
-        parent_visits = max(cur["visits"], 1)
-        cur_id = max(cur["children"], key=lambda cid: _ucb(state, rewards, cid, parent_visits, c))
+    def search(node_id: str) -> str | None:
+        # A non-root node may have at most one direct pending child. While that
+        # child is running, the node itself cannot be expanded again, although
+        # its completed descendants remain selectable.
+        can_expand = node_id == ROOT_ID or not _has_pending_child(state, node_id)
+        if can_expand and _should_widen(state, pending_counts, node_id, pw_k, pw_alpha):
+            return node_id
+
+        done_children = _done_children(state, node_id)
+        ranked_children = sorted(
+            done_children,
+            key=lambda child_id: _ucb(
+                state, rewards, pending_counts, node_id, child_id, c
+            ),
+            reverse=True,
+        )
+        for child_id in ranked_children:
+            selected = search(child_id)
+            if selected is not None:
+                return selected
+        return None
+
+    # If every non-root branch is busy, root is the deliberate fallback even
+    # when its progressive-widening condition is currently closed.
+    return search(ROOT_ID) or ROOT_ID
 
 
 def _backprop_visit(state: dict, node_id: str) -> None:
@@ -167,10 +272,10 @@ def _ancestor_ids(state: dict, node_id: str) -> list[str]:
     return out
 
 
-def _print_next(cid: str) -> None:
+def _print_next(state: dict, cid: str) -> None:
     print(f"CANDIDATE_ID: {cid}")
     print(f"WORKDIR: {_candidate_dir(cid)}")
-    ancestors = _ancestor_ids(_load_state(), cid)
+    ancestors = _ancestor_ids(state, cid)
     print("ANCESTOR_REPORTS:")
     if not ancestors:
         print("none")
@@ -182,83 +287,87 @@ def _print_next(cid: str) -> None:
 
 
 def cmd_init(args: argparse.Namespace) -> None:
-    ALPHAS_DIR.mkdir(parents=True, exist_ok=True)
-    if _state_path().exists():
-        raise SystemExit(f"state already exists: {_state_path()}")
-    _save_state(_initial_state(args.ucb_c, args.pw_k, args.pw_alpha))
-    print(f"ALPHAS_DIR: {ALPHAS_DIR}")
+    with _state_lock():
+        if _state_path().exists():
+            raise SystemExit(f"state already exists: {_state_path()}")
+        _save_state(_initial_state(args.ucb_c, args.pw_k, args.pw_alpha))
+        print(f"ALPHAS_DIR: {ALPHAS_DIR}")
 
 
 def cmd_discard_pending(args: argparse.Namespace) -> None:
     if not _state_path().exists():
         return
 
-    state = _load_state()
-    nodes = state["nodes"]
-    pending_ids = sorted(
-        cid
-        for cid, node in nodes.items()
-        if cid != ROOT_ID and node.get("status") == "pending"
-    )
-    if not pending_ids:
-        return
+    with _state_lock():
+        if not _state_path().exists():
+            return
+        state = _load_state()
+        nodes = state["nodes"]
+        pending_ids = sorted(
+            cid
+            for cid, node in nodes.items()
+            if cid != ROOT_ID and node.get("status") == "pending"
+        )
+        for cid in pending_ids:
+            if nodes[cid]["children"]:
+                raise SystemExit(f"pending candidate has children: {cid}")
+            nodes[cid]["status"] = "discarded"
+        if pending_ids:
+            _save_state(state)
 
-    pending = set(pending_ids)
-    for cid in pending_ids:
-        remaining_children = [child for child in nodes[cid]["children"] if child not in pending]
-        if remaining_children:
-            raise SystemExit(f"pending candidate has non-pending children: {cid}")
-
-    for node in nodes.values():
-        node["children"] = [child for child in node["children"] if child not in pending]
-    for cid in pending_ids:
-        del nodes[cid]
-
-    state["next_candidate_num"] = min(int(cid) for cid in pending_ids) - 1
-    _save_state(state)
-    for cid in pending_ids:
-        print(f"PENDING_WORKDIR: {_candidate_dir(cid)}")
+        discarded_workdirs = sorted(
+            _candidate_dir(cid)
+            for cid, node in nodes.items()
+            if cid != ROOT_ID
+            and node.get("status") == "discarded"
+            and _candidate_dir(cid).exists()
+        )
+        for workdir in discarded_workdirs:
+            print(f"DISCARDED_WORKDIR: {workdir}")
 
 
 def cmd_next(args: argparse.Namespace) -> None:
-    if not _state_path().exists():
-        ALPHAS_DIR.mkdir(parents=True, exist_ok=True)
-        _save_state(_initial_state())
-    state = _load_state()
+    with _state_lock():
+        if not _state_path().exists():
+            _save_state(_initial_state())
+        state = _load_state()
 
-    for cid, node in sorted(state["nodes"].items()):
-        if cid != ROOT_ID and node.get("status") == "pending":
-            _candidate_dir(cid).mkdir(parents=True, exist_ok=True)
-            _print_next(cid)
-            return
-
-    parent_id = _select_parent(state)
-    parent = state["nodes"][parent_id]
-    cid = _next_candidate_id(state)
-    state["nodes"][cid] = _new_node(cid, parent_id, parent["depth"] + 1, status="pending")
-    parent["children"].append(cid)
-    _candidate_dir(cid).mkdir(parents=True)
-    _save_state(state)
-    _print_next(cid)
+        parent_id = _select_parent(state)
+        parent = state["nodes"][parent_id]
+        cid = _next_candidate_id(state)
+        state["nodes"][cid] = _new_node(
+            cid, parent_id, parent["depth"] + 1, status="pending"
+        )
+        parent["children"].append(cid)
+        _candidate_dir(cid).mkdir(parents=True)
+        _save_state(state)
+        _print_next(state, cid)
 
 
 def cmd_update(args: argparse.Namespace) -> None:
-    state = _load_state()
-    cid = args.candidate_id
-    if cid not in state["nodes"] or cid == ROOT_ID:
-        raise SystemExit(f"unknown candidate id: {cid}")
-    node = state["nodes"][cid]
-    if node.get("status") != "pending":
-        raise SystemExit(f"candidate is not pending: {cid}")
     score = float(args.score)
     if not math.isfinite(score):
         raise SystemExit("score must be finite")
 
-    node["score"] = score
-    node["status"] = "done"
-    _backprop_visit(state, cid)
-    _save_state(state)
-    print(f"UPDATED: {cid} score={score:.4g}")
+    with _state_lock():
+        state = _load_state()
+        cid = args.candidate_id
+        if cid not in state["nodes"] or cid == ROOT_ID:
+            raise SystemExit(f"unknown candidate id: {cid}")
+        node = state["nodes"][cid]
+        if node.get("status") == "done":
+            if float(node["score"]) == score:
+                print(f"ALREADY_UPDATED: {cid} score={score:.4g}")
+                return
+            raise SystemExit(f"candidate already has a different score: {cid}")
+        if node.get("status") != "pending":
+            raise SystemExit(f"candidate is not pending: {cid}")
+
+        node["score"] = score
+        node["status"] = "done"
+        _backprop_visit(state, cid)
+        _save_state(state)
+        print(f"UPDATED: {cid} score={score:.4g}")
 
 
 def main() -> None:

@@ -17,7 +17,7 @@ You are a dispatcher. Run an MCTS-style alpha search by calling the scheduler an
 
 A previous run may have exited unexpectedly and left unfinished nodes.
 
-- Run `${CLAUDE_PLUGIN_ROOT}/scripts/mcts.py discard-pending` and delete every workdir it returns. If it returns no workdirs, continue.
+- Run `${CLAUDE_PLUGIN_ROOT}/scripts/mcts.py discard-pending`.
 
 ## Search
 
@@ -32,7 +32,7 @@ For each candidate pipeline:
 5. After the reviewer finishes, read `<WORKDIR>/alpha.md` and extract `FITNESS` from `<review fitness="X">`. If the block or Fitness is missing, resume the reviewer once.
 6. Run `${CLAUDE_PLUGIN_ROOT}/scripts/mcts.py update --candidate-id CANDIDATE_ID --score FITNESS`.
 
-Steps within one candidate pipeline are sequential. Different candidate pipelines may run concurrently. Whenever a pipeline finishes, immediately use the free slot for the next undispatched candidate.
+Steps within one candidate pipeline are sequential. Different candidate pipelines may run concurrently. Whenever a pipeline finishes, immediately use the free slot for the next undispatched candidate. Scheduler commands (`next`, and `update`) must be run serially.
 
 ### Task prompts
 
