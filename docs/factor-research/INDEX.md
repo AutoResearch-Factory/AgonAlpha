@@ -1,4 +1,11 @@
-# Video Course Transcripts
+# 因子研究索引
+
+- [FAQ](faqs.md) - 97 条
+- [推荐阅读](recommended-reading.md) - 22 条
+- [研究论文链接](research-papers.json) - 14 条
+- [课程原始数据](video-courses.json)
+- [搜索目录](search-catalog.json)
+- [搜索结果](search-results.json)
 
 ## Quantcepts
 
