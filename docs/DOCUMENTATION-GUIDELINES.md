@@ -27,7 +27,7 @@ INDEX 层级是从 `docs/INDEX.md` 出发，为知道某文件而必须查看的
 - 第二层：还需要再查看一个由根索引链接的下级 `INDEX.md` 才能知道的文件。
 - 所有适用文件都不得深于第二层。
 
-例如，根索引直接链接 `docs/tutorials/INDEX.md`，而后者链接 `docs/tutorials/examples/19-alpha-examples.md`；该教程的 INDEX 层级为第二层。
+例如，根索引直接链接 `docs/tutorials/INDEX.md`，而后者链接 `docs/tutorials/19-alpha-examples.md`；该教程的 INDEX 层级为第二层。
 
 ### 3. Folder 层级最多为 3
 
@@ -35,13 +35,15 @@ Folder 层级按文件相对于 `docs/` 的路径组成部分数量计算：
 
 - 第一层：`docs/INDEX.md`
 - 第二层：`docs/tutorials/INDEX.md`
-- 第三层：`docs/tutorials/examples/19-alpha-examples.md`
+- 第三层：例如 `docs/tutorials/topic/example.md`
 
 所有适用文件都不得深于第三层。
 
 ### 4. 能浅则浅
 
 满足内容组织清晰的前提下，应同时降低 INDEX 层级和 Folder 层级。达到上限只是合规，不代表已经达到最佳可用性。
+
+能够通过 `INDEX.md` 的 section 和清晰文件名表达的分类，不应再增加中间目录。当前面向阅读的文件均应尽量放在 `docs/<section>/`，避免形成 `docs/<section>/<category>/`。
 
 ### 5. 图片必须被正文引用
 
@@ -75,7 +77,7 @@ Folder 层级按文件相对于 `docs/` 的路径组成部分数量计算：
    - `docs/factor-research/search-catalog.json`
    - `docs/factor-research/search-results.json`
 
-API Schema、`docs/data/dataset-details/*.json`、`docs/data/categories.json` 和 `docs/factor-research/research-papers.json` 有直接使用价值，当前纳入规则检查和计分。
+API Schema、14 个数据集详情 JSON（例如 `docs/data/analyst4.json`）、`docs/data/categories.json` 和 `docs/factor-research/research-papers.json` 有直接使用价值，当前纳入规则检查和计分。
 
 若文件用途发生变化，或新增其他辅助文件，应明确更新本节后再重新计算，不能仅凭扩展名临时排除。
 
@@ -115,27 +117,27 @@ average_score = Σ(c_i × 0.5 ** (L_i - 1)) / Σ(c_i)
 
 ## 当前结果
 
-统计范围：`docs/**`；统计日期：2026-07-12。结果已包含本文档以及 `docs/factor-research/INDEX.md` 的更名。
+统计范围：`docs/**`；统计日期：2026-07-12。结果已包含本文档、索引整理和面向阅读文件的目录扁平化。
 
 | 指标 | 当前值 | 理想值 |
 |---|---:|---:|
 | 纳入计分的文件数 | 117 | — |
-| 纳入计分的总字符数 | 2,317,649 | — |
+| 纳入计分的总字符数 | 2,315,925 | — |
 | INDEX 层级平均分 | 0.90 | 1 |
-| Folder 层级平均分 | 0.45 | 1 |
+| Folder 层级平均分 | 0.50 | 1 |
 
 层级分布：
 
 | 维度 | 第一层 | 第二层 | 第三层 | 不可达或更深 |
 |---|---:|---:|---:|---:|
 | INDEX 文件数 | 16 | 101 | 不适用 | 0 |
-| INDEX 字符数 | 1,849,435 | 468,214 | 不适用 | 0 |
-| Folder 文件数 | 2 | 14 | 101 | 0 |
-| Folder 字符数 | 5,179 | 1,844,256 | 468,214 | 0 |
+| INDEX 字符数 | 1,847,933 | 467,992 | 不适用 | 0 |
+| Folder 文件数 | 2 | 115 | 0 | 0 |
+| Folder 字符数 | 5,001 | 2,310,924 | 0 | 0 |
 
 当前完整性检查：
 
 - INDEX 可达的适用文件：117 / 117。
 - 图片被 Markdown 引用：64 / 64。
 - INDEX 最大层级：2。
-- Folder 最大层级：3。
+- Folder 最大层级：2。

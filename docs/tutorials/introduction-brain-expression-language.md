@@ -15,19 +15,19 @@ Just like how an English sentence consists of a subject, verb and object; Fast e
 
 ### Data fields
 
-[Data fields](../../data/datasets.md) refer to a named collection of data, for example 'open price' or 'close price'.
+[Data fields](../data/datasets.md) refer to a named collection of data, for example 'open price' or 'close price'.
 
-![Datasets and data fields](../images/introduction-brain-expression-language--007-datasets-and-data-fields.png)
+![Datasets and data fields](images/introduction-brain-expression-language--007-datasets-and-data-fields.png)
 
 ### Operators
 
-[Operators](../../syntax/operators.md) refer to a set of mathematical techniques required to implement your Alpha ideas.
+[Operators](../syntax/operators.md) refer to a set of mathematical techniques required to implement your Alpha ideas.
 
-![Operators](../images/introduction-brain-expression-language--010-operators.png)
+![Operators](images/introduction-brain-expression-language--010-operators.png)
 
 ## Further Knowledge of Fast Expression
 
-![Punctuation](../images/introduction-brain-expression-language--012-punctuation.png)
+![Punctuation](images/introduction-brain-expression-language--012-punctuation.png)
 
 - /* helps to create block comments that span multiple lines of text, while */ denotes the end of the comment. Comments consist of explanatory text to help understand what the code does. [1]
 

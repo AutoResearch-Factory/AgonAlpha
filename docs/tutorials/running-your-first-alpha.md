@@ -38,13 +38,13 @@ The graph above for Alpha expression -Delta(close, 5) shows several significant 
 }
 ```
 
-![stats](../images/running-your-first-alpha--005-stats.png)
+![stats](images/running-your-first-alpha--005-stats.png)
 
-Use the green refreshing button in the Correlation block to get the information about the [correlation](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=locations.-,Correlation,-Correlation) of the currently simulated Alpha with the Alphas in your own [OS (Out-of-Sample)](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=details.-,Out-of-sample%20(OS),-Out) pool. This will be explained further on the [Simulation Results page](../interpret-results/parameters-simulation-results.md).
+Use the green refreshing button in the Correlation block to get the information about the [correlation](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=locations.-,Correlation,-Correlation) of the currently simulated Alpha with the Alphas in your own [OS (Out-of-Sample)](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=details.-,Out-of-sample%20(OS),-Out) pool. This will be explained further on the [Simulation Results page](parameters-simulation-results.md).
 
 The image below shows the Properties of the Alpha. You can name your Alpha, assign a category and color code, and add user-defined tags to them. You can add a brief description about your Alpha for your reference. Suggestion - keep the number of user-defined tags low so that they don't proliferate and are easily searchable in the My Alphas page.
 
-![properties](../images/running-your-first-alpha--007-properties.png)
+![properties](images/running-your-first-alpha--007-properties.png)
 
 To Submit Alpha for OS Test, click the "Submit Alpha" button in the [Submission](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=details%C2%A0*).-,Submission,-The) tab of the results panel. This will check if the Alpha meets the [Correlation](https://platform.worldquantbrain.com/learn/documentation/interpret-results/parameters-simulation-results) and [Sharpe](https://platform.worldquantbrain.com/learn/documentation/interpret-results/parameters-simulation-results) criteria before submitting it.
 

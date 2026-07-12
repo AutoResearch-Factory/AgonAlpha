@@ -3,7 +3,7 @@
 Source: https://platform.worldquantbrain.com/learn/documentation/create-alphas/test-period
 Last modified: 2025-09-08T05:27:48.217204-04:00
 
-![Settings dropdown](../images/test-period--001-settings-dropdown.png)
+![Settings dropdown](images/test-period--001-settings-dropdown.png)
 
 The Test Period is a feature designed to enhance your Alpha and SuperAlpha testing process. This tool allows you to set a separate test period from your IS period, providing a more flexible approach to testing your research ideas.
 
@@ -27,6 +27,6 @@ Navigating the Feature:
 
 - Understanding the Stats: The yearly IS stats are divided between Train and Test periods, represented by blue and orange indicators respectively.
 
-![Test Period Graph and Table.png](../images/test-period--003-test-period-graph-and-table.png)
+![Test Period Graph and Table.png](images/test-period--003-test-period-graph-and-table.png)
 
 A. Orange - test period PnL, Blue - Train period PnL. B. View IS summary by selecting different periods

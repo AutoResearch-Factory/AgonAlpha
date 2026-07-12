@@ -48,11 +48,6 @@
 
 - [教程索引](tutorials/INDEX.md) - 18 篇教程及其原始数据链接
 - [教程目录原始数据](tutorials/catalog.json)
-- [Discover BRAIN](tutorials/discover-brain/) - 7 篇
-- [Create Alphas](tutorials/create-alphas/) - 4 篇
-- [Examples](tutorials/examples/) - 2 篇
-- [Interpret Results](tutorials/interpret-results/) - 2 篇
-- [Understanding Data](tutorials/understanding-data/) - 3 篇
 - [教程图片](tutorials/images/) - 64 张，均由正文引用
 - [原始教程数据](tutorials/raw/) - 17 份
 

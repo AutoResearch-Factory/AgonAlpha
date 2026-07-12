@@ -12,7 +12,7 @@ Below table is for submission test for Alphas
 
 ## Submission Tests for Alphas
 
-![article_6_core_requirements.png](../images/alpha-submission--003-article_6_core_requirements.png)
+![article_6_core_requirements.png](images/alpha-submission--003-article_6_core_requirements.png)
 
 | SUBMISSION CRITERIA | THRESHOLDS FOR USERS |
 |---|---|
@@ -62,21 +62,21 @@ subuniverse_sharpe >= 0.75 * sqrt(subuniverse_size / alpha_universe_size) * alph
 
 Consider an Alpha in USA TOP3000 which fails sub-universe test:
 
-![check111.png](../images/alpha-submission--011-check111.png)
+![check111.png](images/alpha-submission--011-check111.png)
 
-![subinverse 6.png](../images/alpha-submission--012-subinverse-6.png)
+![subinverse 6.png](images/alpha-submission--012-subinverse-6.png)
 
 Notice cutoff 0.75 * sqrt(subuniverse_size / alpha_universe_size) * alpha_sharpe = 0.75 * sqrt(1000 / 3000) * 2.73 = 1.18
 
 Let’s check this Alpha performance on next more liquid universe, TOP1000
 
-![subuniverse 5.png](../images/alpha-submission--014-subuniverse-5.png)
+![subuniverse 5.png](images/alpha-submission--014-subuniverse-5.png)
 
-![subinverse 6.png](../images/alpha-submission--015-subinverse-6.png)
+![subinverse 6.png](images/alpha-submission--015-subinverse-6.png)
 
 As you see, Sharpe ratio degraded significantly to 1.17, less than the cutoff of 1.18.
 
-![article_6_subuniverse_test.png](../images/alpha-submission--017-article_6_subuniverse_test.png)
+![article_6_subuniverse_test.png](images/alpha-submission--017-article_6_subuniverse_test.png)
 
 Tips to help you improve your Alpha(s) and pass the sub-universe test:
 
@@ -95,7 +95,7 @@ you can try
 
 ## Special Alpha Types
 
-![article_6_special_alpha_types.png](../images/alpha-submission--020-article_6_special_alpha_types.png)
+![article_6_special_alpha_types.png](images/alpha-submission--020-article_6_special_alpha_types.png)
 
 ### ATOM Alphas
 
@@ -154,7 +154,7 @@ Tips to Improve Sharpe Across Geographies
 
 - GLB Alphas also include a breakdown of global PnL by geography in their PnL chart, making it easy to see how much each geography is contributing. This helps you identify imbalances and determine areas for improvement.
 
-![Picture1.png](../images/alpha-submission--030-picture1.png)
+![Picture1.png](images/alpha-submission--030-picture1.png)
 
 ## Japan Robustness Sharpe Test for ASI Alphas Submission
 
@@ -168,7 +168,7 @@ Note on Japan Sharpe shown in Visualization Tool versus this Test
 
 - The Visualization Tool remains highly useful for diagnosing Japan-specific PnL, turnover dynamics, sector/industry and capitalization breakdowns, and coverage trends, which can guide improvements to Japan robustness.
 
-![Picture1.png](../images/alpha-submission--033-picture1.png)
+![Picture1.png](images/alpha-submission--033-picture1.png)
 
 Tips to Improve Japan Sharpe
 

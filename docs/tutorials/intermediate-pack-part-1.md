@@ -9,7 +9,7 @@ This Intermediate guide aims to further your understanding of the Alphas you hav
 
 Cumulative PnL Chart
 
-![Cumulative PnL Chart](../images/intermediate-pack-part-1--004-cumulative-pnl-chart.png)
+![Cumulative PnL Chart](images/intermediate-pack-part-1--004-cumulative-pnl-chart.png)
 
 If you’ve followed the examples in the Starter pack, chances are you’ve ended up with the first 2 graphs. What both graphs have in common is that they have multiple periods of significant losses, producing a graph with high fluctuations. This means that your simulated portfolio could lose a large percentage of its value in one day, and that wouldn’t be ideal. Rather, a good Alpha should produce a steadily rising PnL chart (3rd graph) with few fluctuations and no major drawdown.
 
@@ -17,7 +17,7 @@ In-sample (IS) Summary
 
 In-sample simulation uses data over a 5-year timeframe, and tests out how well your Alpha performs in the historical period. After the simulation, you will see the IS Summary row with 6 metrics: Sharpe, Turnover, Fitness, Returns, Drawdown, and Margin.
 
-![pic_155.png](../images/intermediate-pack-part-1--006-pic_155.png)
+![pic_155.png](images/intermediate-pack-part-1--006-pic_155.png)
 
 Sharpe
 
@@ -71,7 +71,7 @@ $$
 
 ## Passing IS Stage and Troubleshooting
 
-![pic2.png](../images/intermediate-pack-part-1--020-pic2.png)
+![pic2.png](images/intermediate-pack-part-1--020-pic2.png)
 
 - One of the most common challenges users face is Low Sharpe, and users commonly see that their Sharpe ratio is below the specified cutoff. How do you get a higher Sharpe? We suggest that you can either increase you Alpha return or reduce your volatility. Read more [here](https://support.worldquantbrain.com/hc/en-us/community/posts/8123350778391-How-do-you-get-a-higher-Sharpe-).
 
@@ -79,7 +79,7 @@ $$
 
 - Another difficulty is that the Sub-universe Sharpe is not above cutoff. This means that the Sharpe in the sub-universe must be higher than at least one threshold. There are 2 thresholds that scale down Sharpe with sub-universe size.
 
-![threshold main.PNG](../images/intermediate-pack-part-1--022-threshold-main.png)
+![threshold main.PNG](images/intermediate-pack-part-1--022-threshold-main.png)
 
 Thus, you can try to improve the Sub-Universe Sharpe by increasing the Universe of instruments (i.e. selecting Top3000).
 

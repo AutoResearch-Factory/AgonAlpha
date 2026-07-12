@@ -49,13 +49,13 @@ Good Alphas have high fitness. You can optimize the performance of your Alphas b
 
 Cumulative PnL Chart: A graph (shown below) of an Alpha’s performance ([PnL](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=consultants-,Profit%20and%20Loss%20(PnL),-Profit)) over entire [simulation](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=definition.-,Simulation,-Simulation). This graph can be zoomed in by clicking and dragging below the plot area. Start and end dates for PnL plotting can also be changed here. Clicking the [Sharpe Ratio](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=details.-,Sharpe%20ratio,-Sharpe) in dropdown menu at the upper right from PnL graph displays the Sharpe ratio graph (Sharpe over time). Make sure that the PnL graph has an upward trend, the Sharpe is high and the [Drawdown](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=today-,Drawdown,-Drawdown) is kept to a minimum.
 
-![Cumulative PnL](../images/parameters-simulation-results--016-cumulative-pnl.png)
+![Cumulative PnL](images/parameters-simulation-results--016-cumulative-pnl.png)
 
 ## IS Summary
 
 IS Summary: Scrolling down to the Stats block (shown below) of the simulation results shows various metrics about the Alpha's performance.
 
-![IS_Result.PNG](../images/parameters-simulation-results--019-is_result.png)
+![IS_Result.PNG](images/parameters-simulation-results--019-is_result.png)
 
 Year: The year on which the data was simulated. The last row shows the Alpha’s performance over all years.
 
@@ -81,7 +81,7 @@ Drawdown - the largest reduction in PnL during a time period, expressed as a per
 
 Generate Self Correlation: Clicking the Down Arrow button in a [Self Correlation](https://support.worldquantbrain.com/hc/en-us/articles/4902349883927-Click-here-for-a-list-of-terms-and-their-definitions#:~:text=details%C2%A0*).-,Self%20correlation,-Maximum) row will produce a table with the performance statistics of up to the 5 most correlated Alphas you submitted that qualified for OS testing. This information is meant to help the user ensure they have a diverse set of Alphas. This information can also be accessed by clicking on the Alpha in the Alphas page.
 
-![Correlation](../images/parameters-simulation-results--023-correlation.png)
+![Correlation](images/parameters-simulation-results--023-correlation.png)
 
 ## IS, Semi-OS & OS
 
@@ -91,7 +91,7 @@ The latest two years of data, the Semi-OS, are hidden for scoring and testing pu
 
 Keeping the last 2 years of data hidden leads to higher confidence in the Out-Sample (OS) performance of Alphas and their scores. Statistics shown in the OS Tab of My Alphas page will be populated as data becomes available by each passing day.
 
-![IS, Semi OS and OS](../images/parameters-simulation-results--026-is-semi-os-and-os.png)
+![IS, Semi OS and OS](images/parameters-simulation-results--026-is-semi-os-and-os.png)
 
 ## Alpha Statuses
 
@@ -105,4 +105,4 @@ Keeping the last 2 years of data hidden leads to higher confidence in the Out-Sa
 
 - Decommissioned Alphas do not accrue weight and are not eligible to contribute to your quarterly payment.
 
-![Alpha Lifecycle](../images/parameters-simulation-results--029-alpha-lifecycle.jpg)
+![Alpha Lifecycle](images/parameters-simulation-results--029-alpha-lifecycle.jpg)

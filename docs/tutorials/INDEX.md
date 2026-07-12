@@ -4,36 +4,36 @@
 
 ## Discover BRAIN
 
-- [*Read this First * - Starter Pack](discover-brain/read-first-starter-pack.md)
-- [Introduction to Alphas](discover-brain/about-brain-platform.md)
-- [Introduction to BRAIN Expression Language](discover-brain/introduction-brain-expression-language.md)
-- [Intermediate Pack - Understand Results [1/2]](discover-brain/intermediate-pack-part-1.md)
-- [Intermediate Pack - Improve your Alpha [2/2]](discover-brain/intermediate-pack-part-2.md)
-- [10 Steps to Start on BRAIN](discover-brain/10-steps-start-brain-platform.md)
-- [WorldQuant Challenge](discover-brain/challenge-help.md)
+- [*Read this First * - Starter Pack](read-first-starter-pack.md)
+- [Introduction to Alphas](about-brain-platform.md)
+- [Introduction to BRAIN Expression Language](introduction-brain-expression-language.md)
+- [Intermediate Pack - Understand Results [1/2]](intermediate-pack-part-1.md)
+- [Intermediate Pack - Improve your Alpha [2/2]](intermediate-pack-part-2.md)
+- [10 Steps to Start on BRAIN](10-steps-start-brain-platform.md)
+- [WorldQuant Challenge](challenge-help.md)
 
 ## Create Alphas
 
-- [Simulate your first Alpha](create-alphas/running-your-first-alpha.md)
-- [Test Period](create-alphas/test-period.md)
-- [How to choose the Simulation Settings](create-alphas/simulation-settings.md)
-- [⭐ How BRAIN works](create-alphas/how-brain-platform-works.md)
+- [Simulate your first Alpha](running-your-first-alpha.md)
+- [Test Period](test-period.md)
+- [How to choose the Simulation Settings](simulation-settings.md)
+- [⭐ How BRAIN works](how-brain-platform-works.md)
 
 ## Examples
 
-- [⭐ Alpha Examples for Beginners](examples/19-alpha-examples.md)
-- [⭐ Alpha Examples for Bronze Users 🥉](examples/sample-alpha-concepts.md)
+- [⭐ Alpha Examples for Beginners](19-alpha-examples.md)
+- [⭐ Alpha Examples for Bronze Users 🥉](sample-alpha-concepts.md)
 
 ## Interpret Results
 
-- [Clear these tests before submitting an Alpha](interpret-results/alpha-submission.md)
-- [Parameters in the Simulation results](interpret-results/parameters-simulation-results.md)
+- [Clear these tests before submitting an Alpha](alpha-submission.md)
+- [Parameters in the Simulation results](parameters-simulation-results.md)
 
 ## Understanding Data
 
-- [Understanding Data in BRAIN: Key Concepts and Tips](understanding-data/data.md)
-- [How to use the Data Explorer](understanding-data/how-use-data-explorer.md)
-- [Getting Started with Option6 Implied volatility (IV)](understanding-data/getting-started-option6-implied-volatility-iv.md)
+- [Understanding Data in BRAIN: Key Concepts and Tips](data.md)
+- [How to use the Data Explorer](how-use-data-explorer.md)
+- [Getting Started with Option6 Implied volatility (IV)](getting-started-option6-implied-volatility-iv.md)
 
 ## 原始教程数据
 

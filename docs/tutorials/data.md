@@ -21,7 +21,7 @@ Type of field which has more than one value for every date and instrument. Vecto
 
 You can learn more about it here: [Vector data fields](https://platform.worldquantbrain.com/learn/documentation/understanding-data/vector-datafields).
 
-![vector desc.png](../images/data--008-vector-desc.png)
+![vector desc.png](images/data--008-vector-desc.png)
 
 ### Dataset
 
