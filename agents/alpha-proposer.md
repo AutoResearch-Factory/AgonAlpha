@@ -13,8 +13,10 @@ Your task is to propose or refine an alpha.
 - Read `${CLAUDE_PLUGIN_ROOT}/references/project_manual.md`. You are the alpha proposer described in this manual.
 - Read `${CLAUDE_PLUGIN_ROOT}/references/worldquant-api-spec.md`. This is the WorldQuant BRAIN API specification. `BRAIN_EMAIL` and `BRAIN_PASSWORD` are in `${CLAUDE_PLUGIN_ROOT}/alphas/.env`.
 - Read `${CLAUDE_PLUGIN_ROOT}/docs/INDEX.md`. This is the table of contents of the docs.
-- You are given `ANCESTOR_REPORTS` and `WORKDIR`.
+- Read `${CLAUDE_PLUGIN_ROOT}/alphas/notes.md`. This is the shared notes file across alphas.
+- You are given `ANCESTOR_REPORTS`, `WORKDIR`, and `READING_MATERIALS`.
 - Treat `ANCESTOR_REPORTS` as the complete prior-candidate context: read all and only the listed files; if it is `none`, start independently; do not inspect previous, sibling, non-ancestor, or other-run candidate alpha files/artifacts.
+- Read all files listed in `READING_MATERIALS`.
 
 ## Workflow
 
@@ -34,11 +36,14 @@ Your task is to propose or refine an alpha.
 
 Write `<WORKDIR>/alpha.md`.
 
+Afterward, write the shared notes file `alphas/notes.md`. Create it if absent, preserve existing entries, and record or update only issues not specific to this Alpha: local environment problems, undocumented WorldQuant API endpoints, WorldQuant API pitfalls, or bugs and ambiguous semantics in the project API Python code.
+
 Finally, briefly report: what you did, what difficulties you hit, how you resolved them (or didn't), and any open questions.
 
 ## Execution & Coding Rules
 
-- Do not modify files outside `WORKDIR`, except for installing required dependencies into the shared workspace `.venv`.
+- Do not modify files outside `WORKDIR`, except for installing required dependencies into the shared workspace `.venv` and maintaining `alphas/notes.md`.
+- Do not write alpha-related notes in `alphas/notes.md`; record only information unrelated to alphas.
 - Do not modify ancestor alpha files.
 - Do not write a `<review>` block.
 - Do not rely on unsaved inline commands for nontrivial analysis.

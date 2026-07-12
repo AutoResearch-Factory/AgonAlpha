@@ -5,7 +5,9 @@ import importlib.util
 import itertools
 import json
 import math
+import shutil
 from argparse import Namespace
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -57,7 +59,9 @@ def test_percentile_reward_matches_mid_cdf_and_stays_unbiased_with_ties():
                 assert actual == pytest.approx(mid_cdf_reward(score, scores))
                 assert 0 <= actual <= 10
 
-            mean_reward = sum(mcts._percentile_reward(score, scores) for score in scores) / size
+            mean_reward = (
+                sum(mcts._percentile_reward(score, scores) for score in scores) / size
+            )
             assert mean_reward == pytest.approx(5)
 
     adjacent = math.nextafter(0.0, 1.0)
@@ -97,29 +101,151 @@ def test_parent_selection_combines_subtree_reward_ucb_and_progressive_widening()
     state["nodes"]["leaf"].update(visits=1, score=2.0)
 
     rewards = mcts._node_rewards(state)
+    pending_counts = mcts._pending_counts(state)
     assert rewards["branch"] < rewards["direct"] < rewards["leaf"]
     assert mcts._subtree_reward_sum(state, rewards, "branch") == pytest.approx(10)
 
     # At the exact widening boundary, subtree value selects the branch.
-    assert not mcts._should_widen(state["nodes"]["root"], 1.0, 0.5)
+    assert not mcts._should_widen(state, pending_counts, "root", 1.0, 0.5)
     assert mcts._select_parent(state) == "branch"
 
     # More visits open another progressive-widening slot at the root.
     state["nodes"]["root"]["visits"] = 9
     assert mcts._select_parent(state) == "root"
 
-    state["nodes"]["unvisited"] = mcts._new_node("unvisited", "root", 1)
-    assert math.isinf(mcts._ucb(state, rewards, "unvisited", 9, 10.0))
+    state["nodes"]["unvisited"] = mcts._new_node("unvisited", "root", 1, "done")
+    pending_counts["unvisited"] = 0
+    assert math.isinf(
+        mcts._ucb(state, rewards, pending_counts, "root", "unvisited", 10.0)
+    )
+
+
+def test_pending_counts_follow_each_in_flight_path_and_ignore_discarded_nodes():
+    nodes = {
+        "root": mcts._new_node("root", None, 0, "root"),
+        "a": mcts._new_node("a", "root", 1, "done"),
+        "b": mcts._new_node("b", "root", 1, "done"),
+        "b1": mcts._new_node("b1", "b", 2, "done"),
+        "p_root": mcts._new_node("p_root", "root", 1, "pending"),
+        "p_a": mcts._new_node("p_a", "a", 2, "pending"),
+        "p_deep": mcts._new_node("p_deep", "b1", 3, "pending"),
+        "old": mcts._new_node("old", "root", 1, "discarded"),
+    }
+    nodes["root"]["children"] = ["a", "b", "p_root", "old"]
+    nodes["a"]["children"] = ["p_a"]
+    nodes["b"]["children"] = ["b1"]
+    nodes["b1"]["children"] = ["p_deep"]
+
+    counts = mcts._pending_counts({"nodes": nodes})
+
+    assert counts == {
+        "root": 3,
+        "a": 1,
+        "b": 1,
+        "b1": 1,
+        "p_root": 1,
+        "p_a": 1,
+        "p_deep": 1,
+        "old": 0,
+    }
+
+
+def test_pending_and_discarded_scores_never_enter_completed_rewards():
+    nodes = {
+        "root": mcts._new_node("root", None, 0, "root"),
+        "done": mcts._new_node("done", "root", 1, "done"),
+        "pending": mcts._new_node("pending", "root", 1, "pending"),
+        "discarded": mcts._new_node("discarded", "root", 1, "discarded"),
+    }
+    nodes["root"]["children"] = ["done", "pending", "discarded"]
+    nodes["done"].update(score=1.0, visits=1)
+    # Deliberately malformed scores prove that status, not only nullness, is used.
+    nodes["pending"]["score"] = 100.0
+    nodes["discarded"]["score"] = 200.0
+    state = {"nodes": nodes}
+
+    assert mcts._score_history(state) == [1.0]
+    assert mcts._node_rewards(state) == {"done": 5.0}
+    assert mcts._subtree_reward_sum(state, mcts._node_rewards(state), "root") == 5.0
+
+
+def test_wu_uct_prefers_equivalent_sibling_without_in_flight_work():
+    state = {
+        "config": {"ucb_c": 10.0, "pw_k": 1.0, "pw_alpha": 0.5},
+        "nodes": {
+            "root": mcts._new_node("root", None, 0, "root"),
+            "busy": mcts._new_node("busy", "root", 1, "done"),
+            "free": mcts._new_node("free", "root", 1, "done"),
+            "in_flight": mcts._new_node("in_flight", "busy", 2, "pending"),
+        },
+    }
+    state["nodes"]["root"].update(children=["busy", "free"], visits=2)
+    state["nodes"]["busy"].update(children=["in_flight"], visits=1, score=1.0)
+    state["nodes"]["free"].update(visits=1, score=1.0)
+
+    rewards = mcts._node_rewards(state)
+    pending_counts = mcts._pending_counts(state)
+    busy_ucb = mcts._ucb(
+        state, rewards, pending_counts, "root", "busy", state["config"]["ucb_c"]
+    )
+    free_ucb = mcts._ucb(
+        state, rewards, pending_counts, "root", "free", state["config"]["ucb_c"]
+    )
+
+    assert free_ucb > busy_ucb
+    assert mcts._select_parent(state) == "free"
+
+
+def test_progressive_widening_uses_done_children_and_completed_plus_pending_samples():
+    state = {
+        "nodes": {"root": mcts._new_node("root", None, 0, "root")},
+    }
+    root = state["nodes"]["root"]
+    root["visits"] = 1
+    for cid in ("d1", "d2"):
+        state["nodes"][cid] = mcts._new_node(cid, "root", 1, "done")
+        root["children"].append(cid)
+    for cid in ("p1", "p2", "p3", "p4"):
+        state["nodes"][cid] = mcts._new_node(cid, "root", 1, "pending")
+        root["children"].append(cid)
+    state["nodes"]["old"] = mcts._new_node("old", "root", 1, "discarded")
+    root["children"].append("old")
+
+    no_pending = {node_id: 0 for node_id in state["nodes"]}
+    assert not mcts._should_widen(state, no_pending, "root", 1.0, 0.5)
+    assert mcts._should_widen(state, mcts._pending_counts(state), "root", 1.0, 0.5)
+
+
+def test_root_is_fallback_when_every_non_root_branch_has_a_pending_child():
+    state = {
+        "config": {"ucb_c": 10.0, "pw_k": 1.0, "pw_alpha": 0.5},
+        "nodes": {"root": mcts._new_node("root", None, 0, "root")},
+    }
+    root = state["nodes"]["root"]
+    root["visits"] = 3
+    for index in range(3):
+        done_id = f"d{index}"
+        pending_id = f"p{index}"
+        state["nodes"][done_id] = mcts._new_node(done_id, "root", 1, "done")
+        state["nodes"][done_id].update(
+            children=[pending_id], visits=1, score=float(index)
+        )
+        state["nodes"][pending_id] = mcts._new_node(pending_id, done_id, 2, "pending")
+        root["children"].append(done_id)
+
+    counts = mcts._pending_counts(state)
+    assert not mcts._should_widen(state, counts, "root", 1.0, 0.5)
+    assert mcts._select_parent(state) == "root"
 
 
 def test_backpropagation_and_ancestor_order_follow_only_the_selected_path():
     state = {
         "nodes": {
             "root": mcts._new_node("root", None, 0, "root"),
-            "grandparent": mcts._new_node("grandparent", "root", 1),
-            "parent": mcts._new_node("parent", "grandparent", 2),
-            "leaf": mcts._new_node("leaf", "parent", 3),
-            "sibling": mcts._new_node("sibling", "grandparent", 2),
+            "grandparent": mcts._new_node("grandparent", "root", 1, "done"),
+            "parent": mcts._new_node("parent", "grandparent", 2, "done"),
+            "leaf": mcts._new_node("leaf", "parent", 3, "done"),
+            "sibling": mcts._new_node("sibling", "grandparent", 2, "done"),
         }
     }
 
@@ -133,7 +259,9 @@ def test_backpropagation_and_ancestor_order_follow_only_the_selected_path():
     assert state["nodes"]["sibling"]["visits"] == 0
 
 
-def test_init_preserves_existing_alpha_files_and_refuses_to_reset_state(alphas_dir, capsys):
+def test_init_preserves_existing_alpha_files_and_refuses_to_reset_state(
+    alphas_dir, capsys
+):
     alphas_dir.mkdir()
     env_file = alphas_dir / ".env"
     env_file.write_text("sentinel")
@@ -156,7 +284,166 @@ def test_init_preserves_existing_alpha_files_and_refuses_to_reset_state(alphas_d
     assert env_file.read_text() == "sentinel"
 
 
-def test_candidate_flow_persists_widening_ancestry_and_maximize_selection(alphas_dir, capsys):
+def test_next_initializes_missing_state_with_defaults(alphas_dir, capsys):
+    alphas_dir.mkdir()
+    env_file = alphas_dir / ".env"
+    env_file.write_text("sentinel")
+
+    mcts.cmd_next(Namespace())
+    output = capsys.readouterr().out
+    state = mcts._load_state()
+
+    assert "CANDIDATE_ID: 0001" in output
+    assert "ANCESTOR_REPORTS:\nnone" in output
+    assert state["config"] == {
+        "ucb_c": mcts.DEFAULT_UCB_C,
+        "pw_k": mcts.DEFAULT_PW_K,
+        "pw_alpha": mcts.DEFAULT_PW_ALPHA,
+    }
+    assert state["nodes"]["0001"]["status"] == "pending"
+    assert mcts._candidate_dir("0001").is_dir()
+    assert env_file.read_text() == "sentinel"
+
+
+def test_consecutive_next_calls_create_distinct_pending_root_children(
+    alphas_dir, capsys
+):
+    for _ in range(3):
+        mcts.cmd_next(Namespace())
+        capsys.readouterr()
+
+    state = mcts._load_state()
+
+    assert state["nodes"]["root"]["children"] == ["0001", "0002", "0003"]
+    for cid in ("0001", "0002", "0003"):
+        assert state["nodes"][cid]["parent"] == "root"
+        assert state["nodes"][cid]["status"] == "pending"
+        assert mcts._candidate_dir(cid).is_dir()
+
+
+def test_state_lock_prevents_overlapping_next_calls_from_losing_updates(
+    alphas_dir, capsys
+):
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(lambda _: mcts.cmd_next(Namespace()), range(2)))
+    capsys.readouterr()
+
+    state = mcts._load_state()
+    assert state["next_candidate_num"] == 2
+    assert state["nodes"]["root"]["children"] == ["0001", "0002"]
+    assert set(state["nodes"]) == {"root", "0001", "0002"}
+
+
+def test_atomic_save_failure_preserves_previous_state(alphas_dir, monkeypatch):
+    alphas_dir.mkdir()
+    original = mcts._initial_state()
+    mcts._save_state(original)
+    before = mcts._state_path().read_bytes()
+
+    def fail_replace(source, destination):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(mcts.os, "replace", fail_replace)
+    changed = mcts._initial_state(ucb_c=99.0)
+    with pytest.raises(OSError, match="replace failed"):
+        mcts._save_state(changed)
+
+    assert mcts._state_path().read_bytes() == before
+    assert list(alphas_dir.glob(".state.*.tmp")) == []
+
+
+def test_discard_pending_is_a_noop_without_state(alphas_dir, capsys):
+    mcts.cmd_discard_pending(Namespace())
+
+    assert capsys.readouterr().out == ""
+    assert not alphas_dir.exists()
+
+
+def test_discard_pending_keeps_tombstones_retries_cleanup_and_never_reuses_ids(
+    alphas_dir, capsys
+):
+    alphas_dir.mkdir()
+    nodes = {
+        "root": mcts._new_node("root", None, 0, "root"),
+        "0001": mcts._new_node("0001", "root", 1, "done"),
+        "0002": mcts._new_node("0002", "0001", 2, "done"),
+        "0003": mcts._new_node("0003", "root", 1, "pending"),
+        "0004": mcts._new_node("0004", "root", 1, "done"),
+        "0005": mcts._new_node("0005", "root", 1, "pending"),
+    }
+    nodes["root"].update(children=["0001", "0003", "0004", "0005"], visits=3)
+    nodes["0001"].update(children=["0002"], visits=2, score=1.0)
+    nodes["0002"].update(visits=1, score=2.0)
+    nodes["0004"].update(visits=1, score=3.0)
+    state = {
+        "method": "alpha-mcts",
+        "next_candidate_num": 5,
+        "config": {
+            "ucb_c": mcts.DEFAULT_UCB_C,
+            "pw_k": mcts.DEFAULT_PW_K,
+            "pw_alpha": mcts.DEFAULT_PW_ALPHA,
+        },
+        "nodes": nodes,
+    }
+    mcts._save_state(state)
+    for cid in ("0003", "0005"):
+        mcts._candidate_dir(cid).mkdir()
+        (mcts._candidate_dir(cid) / "sentinel").write_text(cid)
+
+    mcts.cmd_discard_pending(Namespace())
+    output = capsys.readouterr().out
+    cleaned = mcts._load_state()
+
+    assert output == (
+        f"DISCARDED_WORKDIR: {mcts._candidate_dir('0003')}\n"
+        f"DISCARDED_WORKDIR: {mcts._candidate_dir('0005')}\n"
+    )
+    assert set(cleaned["nodes"]) == {"root", "0001", "0002", "0003", "0004", "0005"}
+    assert cleaned["nodes"]["root"]["children"] == ["0001", "0003", "0004", "0005"]
+    assert cleaned["nodes"]["0003"]["status"] == "discarded"
+    assert cleaned["nodes"]["0005"]["status"] == "discarded"
+    assert cleaned["next_candidate_num"] == 5
+    assert all(count == 0 for count in mcts._pending_counts(cleaned).values())
+
+    # Cleanup output is repeatable until the dispatcher removes the directories.
+    mcts.cmd_discard_pending(Namespace())
+    assert capsys.readouterr().out == output
+    for cid in ("0003", "0005"):
+        assert (mcts._candidate_dir(cid) / "sentinel").read_text() == cid
+        shutil.rmtree(mcts._candidate_dir(cid))
+
+    mcts.cmd_discard_pending(Namespace())
+    assert capsys.readouterr().out == ""
+
+    mcts.cmd_next(Namespace())
+    assert "CANDIDATE_ID: 0006" in capsys.readouterr().out
+
+
+def test_discard_pending_rejects_non_pending_descendants_without_modifying_state(
+    alphas_dir, capsys
+):
+    alphas_dir.mkdir()
+    nodes = {
+        "root": mcts._new_node("root", None, 0, "root"),
+        "0001": mcts._new_node("0001", "root", 1, "pending"),
+        "0002": mcts._new_node("0002", "0001", 2, "done"),
+    }
+    nodes["root"]["children"] = ["0001"]
+    nodes["0001"]["children"] = ["0002"]
+    state = {"next_candidate_num": 2, "nodes": nodes}
+    mcts._save_state(state)
+    before = mcts._state_path().read_bytes()
+
+    with pytest.raises(SystemExit, match="pending candidate has children: 0001"):
+        mcts.cmd_discard_pending(Namespace())
+
+    assert capsys.readouterr().out == ""
+    assert mcts._state_path().read_bytes() == before
+
+
+def test_candidate_flow_persists_widening_ancestry_and_maximize_selection(
+    alphas_dir, capsys
+):
     mcts.cmd_init(init_args())
     capsys.readouterr()
 
@@ -203,7 +490,9 @@ def test_candidate_flow_persists_widening_ancestry_and_maximize_selection(alphas
     assert mcts._candidate_dir("0004").is_dir()
 
 
-def test_update_failures_are_non_destructive_and_duplicate_update_is_rejected(alphas_dir, capsys):
+def test_update_failures_are_non_destructive_and_same_score_retry_is_idempotent(
+    alphas_dir, capsys
+):
     mcts.cmd_init(init_args())
     mcts.cmd_next(Namespace())
     capsys.readouterr()
@@ -224,7 +513,11 @@ def test_update_failures_are_non_destructive_and_duplicate_update_is_rejected(al
     capsys.readouterr()
     completed_state = mcts._state_path().read_bytes()
 
-    with pytest.raises(SystemExit, match="candidate is not pending"):
+    mcts.cmd_update(update_args("0001", 0.0))
+    assert capsys.readouterr().out == "ALREADY_UPDATED: 0001 score=0\n"
+    assert mcts._state_path().read_bytes() == completed_state
+
+    with pytest.raises(SystemExit, match="candidate already has a different score"):
         mcts.cmd_update(update_args("0001", 2.0))
     assert mcts._state_path().read_bytes() == completed_state
 
@@ -244,7 +537,7 @@ def test_print_next_labels_deep_ancestors_without_including_root(alphas_dir, cap
         parent = candidate_id
     mcts._save_state({"nodes": nodes})
 
-    mcts._print_next("0004")
+    mcts._print_next({"nodes": nodes}, "0004")
     output = capsys.readouterr().out
 
     assert f"ancestor 1 (father): {mcts._alpha_path('0003')}" in output

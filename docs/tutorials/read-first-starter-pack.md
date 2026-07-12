@@ -89,19 +89,19 @@ Users need to score at least 10,000 points on the WorldQuant Challenge to be eli
 
 Read about the stories of our consultants :
 
-![Azmi-Fauzi-Hero-Image-QA-scaled.jpg](../../images/read-first-starter-pack/010-azmi-fauzi-hero-image-qa-scaled.jpg)
+![Azmi-Fauzi-Hero-Image-QA-scaled.jpg](images/read-first-starter-pack--010-azmi-fauzi-hero-image-qa-scaled.jpg)
 
 [Azmi Fauzi – Indonesia](https://www.worldquant.com/ideas/consultant-spotlight-azmi-fauzi/)
 
-![consultant 2.jpg](../../images/read-first-starter-pack/012-consultant-2.jpg)
+![consultant 2.jpg](images/read-first-starter-pack--012-consultant-2.jpg)
 
 [Aradhana Singh – India](https://www.worldquant.com/ideas/consultant-spotlight-aradhana-singh/)
 
-![consultant 3.jpg](../../images/read-first-starter-pack/014-consultant-3.jpg)
+![consultant 3.jpg](images/read-first-starter-pack--014-consultant-3.jpg)
 
 [Zhuangzhuang Meng - China](https://www.worldquant.com/ideas/consultant-spotlight-zhuangzhuang-meng/)
 
-![resized_2_Consultant-Spotlight_Donghwa-Seo.jpg](../../images/read-first-starter-pack/016-resized_2_consultant-spotlight_donghwa-seo.jpg)
+![resized_2_Consultant-Spotlight_Donghwa-Seo.jpg](images/read-first-starter-pack--016-resized_2_consultant-spotlight_donghwa-seo.jpg)
 
 [Donghwa Seo - Korea](https://www.worldquant.com/ideas/consultant-spotlightdonghwa-seo/)
 
@@ -157,7 +157,7 @@ About BRAIN
 
 Utilizing the quantitative analysis approach, BRAIN is a web-based simulator of global financial markets that was created to explore Alpha research. It accepts an Alpha expression as input and plots its Profit and Loss (PnL) as output.
 
-![graph3 (1).jpg](../../images/read-first-starter-pack/032-graph3-1.jpg)
+![graph3 (1).jpg](images/read-first-starter-pack--032-graph3-1.jpg)
 
 The input expression is evaluated for each financial instrument, every day over historical dates, and a portfolio is constructed accordingly. BRAIN invests in each financial instrument according to the value of the expression. It takes positions (either buying or short selling) and assigns weights to each instrument.
 
@@ -169,13 +169,13 @@ Weights
 
 Imagine market data being a matrix, with each row representing one date and each column representing one stock. For example, the matrix for close price data could look like this:
 
-![graph4 (1).jpg](../../images/read-first-starter-pack/036-graph4-1.jpg)
+![graph4 (1).jpg](images/read-first-starter-pack--036-graph4-1.jpg)
 
 Table: Closing stock prices of company A, B and C for 3 respective days.
 
 The role of the Alpha expression is to transform the input matrix to an output vector of weights, with each weight corresponding to one of the stocks. The Alpha output vector, having weights as values corresponding to each instrument in the Universe, could look something like this:
 
-![graph5 (1).jpg](../../images/read-first-starter-pack/038-graph5-1.jpg)
+![graph5 (1).jpg](images/read-first-starter-pack--038-graph5-1.jpg)
 
 Table: Output vector to indicate the direction as well as sizing for company A, B and C.
 
@@ -199,7 +199,7 @@ Now I again calculate the Alpha values for the stocks, and again calculate weigh
 
 This is repeated for each day in the simulation period to calculate and plot the cumulative PnL.
 
-![graph1 (2).png](../../images/read-first-starter-pack/041-graph1-2.png)
+![graph1 (2).png](images/read-first-starter-pack--041-graph1-2.png)
 
 Reducing Risk and Volatility
 
@@ -241,7 +241,7 @@ An Operator is a set of mathematical or statistical techniques required to imple
 
 Here are some common examples of Alphas build using data fields and operators:
 
-![graph2.png](../../images/read-first-starter-pack/045-graph2.png)
+![graph2.png](images/read-first-starter-pack--045-graph2.png)
 
 You can try out some sample Alphas by clicking on the Example button (bottom left corner) on the simulator page. Leverage the hint and test out a few simulations! Click here to try now: [Simulate Page](https://platform.worldquantbrain.com/simulate)
 
@@ -283,7 +283,7 @@ One way to express this idea is through the Alpha expression here:
 }
 ```
 
-![graph26.png](../../images/read-first-starter-pack/050-graph26.png)
+![graph26.png](images/read-first-starter-pack--050-graph26.png)
 
 Fundamental Analysis
 
@@ -326,7 +326,7 @@ The hypothesis is that a stock with higher inventory turnover ratio will have a 
 }
 ```
 
-![invemtory_turnuverupdated.png](../../images/read-first-starter-pack/055-invemtory_turnuverupdated.png)
+![invemtory_turnuverupdated.png](images/read-first-starter-pack--055-invemtory_turnuverupdated.png)
 
 Time Series & Cross Sectional
 

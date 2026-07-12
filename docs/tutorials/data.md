@@ -19,9 +19,9 @@ Basic type of field which has just one value of every date and instrument. There
 
 Type of field which has more than one value for every date and instrument. Vector data fields have to be converted into matrix data fields using [vector operators](https://platform.worldquantbrain.com/learn/operators/operators#vector-operators) before using with other operators and matrix data fields. Otherwise, an error message will be returned.
 
-You can learn more about it here: [Vector data fields]($tutorialpage/understanding-data/vector-datafields)
+You can learn more about it here: [Vector data fields](https://platform.worldquantbrain.com/learn/documentation/understanding-data/vector-datafields).
 
-![vector desc.png](../../images/data/008-vector-desc.png)
+![vector desc.png](images/data--008-vector-desc.png)
 
 ### Dataset
 

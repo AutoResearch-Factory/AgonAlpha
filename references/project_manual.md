@@ -1,6 +1,6 @@
 # AutoAlpha Manual
 
-## Run layout
+## Directory layout
 
 ```
 alphas/
@@ -18,15 +18,27 @@ alphas/
 
 <template>
 
+# Alpha Report: <slug>
+
 ## One sentence
 
 State the proposed alpha in one sentence, using LaTeX syntax for the formulae.
 
 ## Motivation and explanation
 
+Explain the intuition behind the alpha and the role of each component in its formula.
+
 ## Performance
 
+Report the final alpha's simulation settings, performance metrics, and submission checks.
+
+## Alternative attempts
+
+Summarize the main alternatives tested, their results, and why they were pruned.
+
 ## Artifacts
+
+List the files needed to inspect or reproduce the work.
 
 <review fitness="X">
 ...

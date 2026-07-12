@@ -5,7 +5,7 @@ Last modified: 2025-03-12T05:10:08.846145-04:00
 
 ## Use Different Operators
 
-Remember the cross-sectional operators and time-series operators from the [Starter pack]($tutorialpage/discover-brain/read-first-starter-pack)? You can use them here. Secondly, you can try out different data fields. We recommend exploring the price volume dataset, model dataset and fundamental dataset. Lastly, you can tinker with different simulation settings. These tips should help improve the performance of your second Alpha.
+Remember the cross-sectional operators and time-series operators from the [Starter pack](read-first-starter-pack.md)? You can use them here. Secondly, you can try out different data fields. We recommend exploring the price volume dataset, model dataset and fundamental dataset. Lastly, you can tinker with different simulation settings. These tips should help improve the performance of your second Alpha.
 
 Divide (/)
 
@@ -13,11 +13,11 @@ We can divide data fields with other data fields.
 
 Imagine market data being a matrix, with each row representing one date and each column representing one stock. For example, the matrix for close price data of stocks in universe US TOP3000 would look like this:
 
-![pic3.png](../../images/intermediate-pack-part-2/003-pic3.png)
+![pic3.png](images/intermediate-pack-part-2--003-pic3.png)
 
 And the matrix for open data of above stocks would look like this:
 
-![pic4.png](../../images/intermediate-pack-part-2/005-pic4.png)
+![pic4.png](images/intermediate-pack-part-2--005-pic4.png)
 
 Say you enter an Alpha expression like close/open in the Simulate page found in the Alphas dropdown tab. When you click Simulate, BRAIN will evaluate the Alpha expression against the matrix of market data for each date and each stock.
 
@@ -29,27 +29,27 @@ Alpha expression: rank(sales/assets). If company B has a higher asset turnover r
 
 For example:
 
-![pic5.png](../../images/intermediate-pack-part-2/007-pic5.png)
+![pic5.png](images/intermediate-pack-part-2--007-pic5.png)
 
 The numbers imply that if you have $126, you must use $100 to go long stock E (~80% of your total capital). So, your strategy would depend crucially on how the last stock performs. But, isn’t that too risky? Applying the rank function to the alpha expression rank(sales/assets), you get:
 
-![pic18.png](../../images/intermediate-pack-part-2/009-pic18.png)
+![pic18.png](images/intermediate-pack-part-2--009-pic18.png)
 
 This time you see that the stock with the largest weight occupies only 40% of your portfolio.
 
 Ts_rank & Ts_delta Operator
 
-![pic6.png](../../images/intermediate-pack-part-2/011-pic6.png)
+![pic6.png](images/intermediate-pack-part-2--011-pic6.png)
 
 Visual Illustration of Ts_rank Operator:
 
-![pic7.png](../../images/intermediate-pack-part-2/013-pic7.png)
+![pic7.png](images/intermediate-pack-part-2--013-pic7.png)
 
 ## Change Simulation Settings
 
 In your first Alpha simulation, you left the simulation settings on default. Changing certain simulation settings may help you improve your Alpha results. We will go through Region, Universe, Neutralization, Decay and Truncation. The other settings will be covered in a later guide.
 
-![pic8.png](../../images/intermediate-pack-part-2/016-pic8.png)
+![pic8.png](images/intermediate-pack-part-2--016-pic8.png)
 
 Region
 
@@ -63,7 +63,7 @@ Decay
 
 Decay is used for averaging the Alpha signal within a specified time window. The settings perform linear decay on the Alpha. Tip: Decay can be used to reduce turnover, but decay values that are too large will attenuate the signal.
 
-![pic9 (1).png](../../images/intermediate-pack-part-2/018-pic9-1.png)
+![pic9 (1).png](images/intermediate-pack-part-2--018-pic9-1.png)
 
 Truncation
 
@@ -75,7 +75,7 @@ Market risks and industry specific risks are prevalent risks within equities. Ho
 
 When Neutralization = “Market/Industry/Sub-industry” it does the following operation: Alpha = Alpha – mean(Alpha) where Alpha is the vector of weights.
 
-![pic10.png](../../images/intermediate-pack-part-2/020-pic10.png)
+![pic10.png](images/intermediate-pack-part-2--020-pic10.png)
 
 If the hypothetical book size is 20 million, we would end up investing $10 million in long positions and $10 million in short positions. Thus, no net position is taken with respect to the market. In other words, the long exposure cancels out the short exposure completely, making this hypothetical strategy market neutral.
 
