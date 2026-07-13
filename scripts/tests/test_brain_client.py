@@ -499,6 +499,26 @@ def test_concurrency_limit_error_requeues_instead_of_becoming_terminal(tmp_path)
     assert registry.snapshot() == {}
 
 
+def test_simulate_candidates_writes_brain_summary_on_timeout(tmp_path):
+    clock = Clock()
+    client = DelayedBatchClient(clock, "30")
+
+    with pytest.raises(brain_client.BatchTimeout):
+        brain_client.simulate_candidates(
+            client,
+            [candidate("a")],
+            tmp_path / "run",
+            max_runtime=1.0,
+            registry=simulation_registry(tmp_path, clock),
+        )
+
+    summary_path = tmp_path / "run" / "brain_summary.json"
+    assert summary_path.exists()
+    summary = json.loads(summary_path.read_text())
+    assert summary["candidate_count"] == 1
+    assert summary["completed_count"] == 0
+
+
 @pytest.mark.parametrize(
     ("retry_after", "expected_second_poll"),
     [("5", 30.0), ("45", 45.0)],
