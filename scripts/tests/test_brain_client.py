@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
@@ -170,6 +171,26 @@ class DelayedBatchClient(FakeBatchClient):
         return brain_client.APIResponse(200, {}, {"alpha": alpha_id})
 
 
+class ConcurrencyLimitedBatchClient(FakeBatchClient):
+    def __init__(self, clock: Clock):
+        super().__init__(clock)
+        self.create_attempts = 0
+
+    def create_simulation(self, payload):
+        self.create_attempts += 1
+        if self.create_attempts == 1:
+            raise brain_client.BrainAPIError(
+                "POST",
+                "https://brain.test/simulations",
+                brain_client.APIResponse(
+                    429,
+                    {"Retry-After": "2"},
+                    {"detail": "CONCURRENT_SIMULATION_LIMIT_EXCEEDED"},
+                ),
+            )
+        return super().create_simulation(payload)
+
+
 def candidate(key: str) -> dict:
     return {
         "key": key,
@@ -178,6 +199,56 @@ def candidate(key: str) -> dict:
         "regular": key,
         "settings": {"region": "USA", "delay": 1},
     }
+
+
+def simulation_registry(tmp_path, clock):
+    return brain_client.SimulationRegistry(
+        tmp_path / ".brain-simulations.json",
+        wall_time=clock.wall,
+    )
+
+
+def test_simulation_registry_atomically_caps_concurrent_leases(tmp_path):
+    clock = Clock()
+    registry = simulation_registry(tmp_path, clock)
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        lease_ids = list(
+            pool.map(
+                lambda index: registry.try_acquire(
+                    candidate=f"candidate-{index}", workdir=tmp_path / str(index)
+                ),
+                range(10),
+            )
+        )
+
+    acquired = [lease_id for lease_id in lease_ids if lease_id is not None]
+    assert len(acquired) == 3
+    assert len(registry.snapshot()) == 3
+
+
+def test_simulation_registry_prunes_one_hour_zombies_and_ignores_old_release(
+    tmp_path,
+):
+    clock = Clock()
+    registry = simulation_registry(tmp_path, clock)
+    old_leases = [
+        registry.try_acquire(
+            candidate=f"old-{index}", workdir=tmp_path / f"old-{index}"
+        )
+        for index in range(brain_client.MAX_CONCURRENT_SIMULATIONS)
+    ]
+    assert all(lease_id is not None for lease_id in old_leases)
+    assert (
+        registry.try_acquire(candidate="blocked", workdir=tmp_path / "blocked") is None
+    )
+
+    clock.wall_value += brain_client.SIMULATION_LEASE_TIMEOUT_SECONDS
+    new_lease = registry.try_acquire(candidate="new", workdir=tmp_path / "new")
+
+    assert new_lease is not None
+    assert registry.release(old_leases[0]) is False
+    assert set(registry.snapshot()) == {new_lease}
 
 
 def test_request_reauthenticates_once(tmp_path):
@@ -204,16 +275,76 @@ def test_request_reauthenticates_once(tmp_path):
     assert auth.password == "secret=with#symbols"
 
 
+def test_submission_checks_retry_empty_200_response(tmp_path):
+    clock = Clock()
+    checks = {"is": {"checks": [{"name": "fitness", "result": "PASS"}]}}
+    session = FakeSession(
+        requests_=(
+            response(200, None, {"Retry-After": "2"}),
+            response(200, checks),
+        )
+    )
+    client = brain_client.BrainClient(
+        write_env(tmp_path / ".env"),
+        session=session,
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+        wall_time=clock.wall,
+    )
+    client.authenticated = True
+
+    assert client.submission_checks("alpha-1") == checks
+    assert clock.sleeps == [2.0]
+
+
+def test_submit_accepts_empty_201_and_verifies_eventual_alpha_state(tmp_path):
+    clock = Clock()
+    before = {
+        "id": "alpha-1",
+        "name": "candidate",
+        "status": "UNSUBMITTED",
+        "stage": "IS",
+    }
+    pending = {"id": "alpha-1", "name": "candidate", "status": "PENDING", "stage": "IS"}
+    active = {"id": "alpha-1", "name": "candidate", "status": "ACTIVE", "stage": "OS"}
+    session = FakeSession(
+        requests_=(
+            response(200, before),
+            response(201, None, {"Retry-After": "2"}),
+            response(200, pending),
+            response(200, active),
+        )
+    )
+    client = brain_client.BrainClient(
+        write_env(tmp_path / ".env"),
+        session=session,
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+        wall_time=clock.wall,
+    )
+    client.authenticated = True
+
+    result = client.submit_alpha("alpha-1")
+
+    assert result["submission"]["status_code"] == 201
+    assert result["submission"]["body"] == ""
+    assert result["alpha"] == active
+    assert clock.sleeps == [2.0, 5.0]
+
+
 def test_retry_after_accepts_http_date_and_rejects_bad_values():
     now = 1_800_000_000.0
-    future = format_datetime(datetime.fromtimestamp(now + 17, timezone.utc), usegmt=True)
+    future = format_datetime(
+        datetime.fromtimestamp(now + 17, timezone.utc), usegmt=True
+    )
 
     assert brain_client.retry_after_seconds(
         {"retry-after": future}, 3.0, now=now
     ) == pytest.approx(17.0)
-    assert brain_client.retry_after_seconds(
-        {"Retry-After": "not-a-date"}, 3.0, now=now
-    ) == 3.0
+    assert (
+        brain_client.retry_after_seconds({"Retry-After": "not-a-date"}, 3.0, now=now)
+        == 3.0
+    )
 
 
 def test_run_dir_must_match_the_execution_directory(tmp_path):
@@ -226,9 +357,7 @@ def test_run_dir_must_match_the_execution_directory(tmp_path):
 
 
 def test_candidate_names_must_match_the_workdir_loop_and_slug():
-    brain_client.validate_candidate_names(
-        [{"name": "0007-12-short-reversal"}], "0007"
-    )
+    brain_client.validate_candidate_names([{"name": "0007-12-short-reversal"}], "0007")
 
     with pytest.raises(ValueError, match="must start with '0007-'"):
         brain_client.validate_candidate_names(
@@ -281,7 +410,9 @@ def test_candidate_names_must_match_the_workdir_loop_and_slug():
         ),
     ],
 )
-def test_candidate_loading_blocks_deduplication_and_path_escape(tmp_path, rows, message):
+def test_candidate_loading_blocks_deduplication_and_path_escape(
+    tmp_path, rows, message
+):
     path = tmp_path / "candidates.json"
     path.write_text(json.dumps(rows), encoding="utf-8")
 
@@ -295,7 +426,11 @@ def test_simulate_candidates_keeps_multiple_jobs_inflight_and_names_results(tmp_
     candidates = [candidate("a"), candidate("b"), candidate("c")]
 
     summary = brain_client.simulate_candidates(
-        client, candidates, tmp_path / "run", max_active=2
+        client,
+        candidates,
+        tmp_path / "run",
+        max_active=2,
+        registry=simulation_registry(tmp_path, clock),
     )
 
     assert summary["completed_count"] == 3
@@ -312,6 +447,26 @@ def test_simulate_candidates_keeps_multiple_jobs_inflight_and_names_results(tmp_
         assert result["alpha_id"] == f"alpha-{key}"
 
 
+def test_concurrency_limit_error_requeues_instead_of_becoming_terminal(tmp_path):
+    clock = Clock()
+    client = ConcurrencyLimitedBatchClient(clock)
+    registry = simulation_registry(tmp_path, clock)
+
+    summary = brain_client.simulate_candidates(
+        client,
+        [candidate("a")],
+        tmp_path / "run",
+        registry=registry,
+    )
+
+    assert summary["completed_count"] == 1
+    assert summary["failure_count"] == 0
+    assert client.create_attempts == 2
+    assert clock.sleeps[0] == 2.0
+    assert not (tmp_path / "run" / "a" / "error.json").exists()
+    assert registry.snapshot() == {}
+
+
 @pytest.mark.parametrize(
     ("retry_after", "expected_second_poll"),
     [("5", 30.0), ("45", 45.0)],
@@ -323,7 +478,10 @@ def test_simulation_polling_uses_the_larger_of_retry_after_and_default_interval(
     client = DelayedBatchClient(clock, retry_after)
 
     summary = brain_client.simulate_candidates(
-        client, [candidate("a")], tmp_path / "run"
+        client,
+        [candidate("a")],
+        tmp_path / "run",
+        registry=simulation_registry(tmp_path, clock),
     )
 
     assert summary["completed_count"] == 1
@@ -338,11 +496,24 @@ def test_simulate_candidates_resumes_saved_location_without_resubmitting(tmp_pat
     active_dir = run_dir / "a"
     active_dir.mkdir(parents=True)
     brain_client.write_json(active_dir / "candidate.json", candidates[0])
-    brain_client.write_json(active_dir / "payload.json", brain_client._payload(candidates[0]))
+    brain_client.write_json(
+        active_dir / "payload.json", brain_client._payload(candidates[0])
+    )
     location = "https://brain.test/simulations/resumed-a"
+    registry = simulation_registry(tmp_path, clock)
+    lease_id = registry.try_acquire(
+        candidate=candidates[0]["key"], workdir=active_dir, location=location
+    )
+    assert lease_id is not None
     brain_client.write_json(
         active_dir / "creation.json",
-        {"location": location, "requested_at": clock.wall(), "response": {}},
+        {
+            "location": location,
+            "requested_at": clock.wall(),
+            "lease_id": lease_id,
+            "global_count_active": True,
+            "response": {},
+        },
     )
     client.register(location, candidates[0])
 
@@ -355,11 +526,14 @@ def test_simulate_candidates_resumes_saved_location_without_resubmitting(tmp_pat
     }
     brain_client.write_json(complete_dir / "result.json", saved_result)
 
-    summary = brain_client.simulate_candidates(client, candidates, run_dir)
+    summary = brain_client.simulate_candidates(
+        client, candidates, run_dir, registry=registry
+    )
 
     assert summary["completed_count"] == 2
     assert not [event for event in client.events if event[0] == "create"]
     assert client.events[0] == ("poll", "a")
+    assert registry.snapshot() == {}
 
 
 def test_reused_old_alpha_is_never_renamed(tmp_path):
@@ -367,7 +541,10 @@ def test_reused_old_alpha_is_never_renamed(tmp_path):
     client = FakeBatchClient(clock, old_alpha=True)
 
     summary = brain_client.simulate_candidates(
-        client, [candidate("a")], tmp_path / "run"
+        client,
+        [candidate("a")],
+        tmp_path / "run",
+        registry=simulation_registry(tmp_path, clock),
     )
 
     assert summary["completed_count"] == 0
@@ -381,7 +558,10 @@ def test_alpha_without_creation_time_is_never_renamed(tmp_path):
     client = FakeBatchClient(clock, missing_created_at=True)
 
     summary = brain_client.simulate_candidates(
-        client, [candidate("a")], tmp_path / "run"
+        client,
+        [candidate("a")],
+        tmp_path / "run",
+        registry=simulation_registry(tmp_path, clock),
     )
 
     assert summary["completed_count"] == 0
