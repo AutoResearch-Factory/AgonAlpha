@@ -19,6 +19,7 @@ __pycache__/
 .superpowers/
 
 # Ignore the docs directory and all its contents
+plans/
 bin/
 temp/
 CLAUDE.md
