@@ -14,6 +14,8 @@ alphas/
     └── ...
 ```
 
+All BRAIN simulations must be created through `${CLAUDE_PLUGIN_ROOT}/scripts/brain_client.py`; do not send `POST /simulations` directly. The shared client enforces the account-wide concurrency limit across every agent working under `alphas/`.
+
 ## Alpha file format
 
 <template>

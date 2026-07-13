@@ -27,6 +27,7 @@ ROOT_ID = "root"
 DEFAULT_UCB_C = 10.0
 DEFAULT_PW_K = 1.0
 DEFAULT_PW_ALPHA = 0.5
+SIMULATION_REGISTRY_FILENAME = ".brain-simulations.json"
 
 
 def _state_path() -> Path:
@@ -43,6 +44,27 @@ def _alpha_path(cid: str) -> Path:
 
 def _lock_path() -> Path:
     return ALPHAS_DIR / ".state.lock"
+
+
+def _simulation_registry_path() -> Path:
+    return ALPHAS_DIR / SIMULATION_REGISTRY_FILENAME
+
+
+def _reset_simulation_registry() -> None:
+    path = _simulation_registry_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    with os.fdopen(descriptor, "r+", encoding="utf-8") as registry_file:
+        fcntl.flock(registry_file.fileno(), fcntl.LOCK_EX)
+        try:
+            registry_file.seek(0)
+            json.dump({"simulations": {}}, registry_file, indent=2, sort_keys=True)
+            registry_file.write("\n")
+            registry_file.truncate()
+            registry_file.flush()
+            os.fsync(registry_file.fileno())
+        finally:
+            fcntl.flock(registry_file.fileno(), fcntl.LOCK_UN)
 
 
 @contextmanager
@@ -295,10 +317,8 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 
 def cmd_discard_pending(args: argparse.Namespace) -> None:
-    if not _state_path().exists():
-        return
-
     with _state_lock():
+        _reset_simulation_registry()
         if not _state_path().exists():
             return
         state = _load_state()

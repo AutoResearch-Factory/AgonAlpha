@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
-"""Shared BRAIN client for resumable, parallel Alpha simulation.
+"""Shared BRAIN client for simulation, submission checks, and submission.
 
 The ``simulate`` command accepts either a JSON list or an object containing a
 ``candidates`` list. Every candidate must contain ``name``, ``settings``, and
 either ``regular`` or ``expression``. ``name`` is also its artifact-directory
 name and must be ``{CANDIDATE_ID}-{LOOP_ID}-{SLUG}``.
+
+The ``check`` command waits for non-empty submission checks. The ``submit``
+command accepts the empty HTTP 201 response and verifies the final Alpha state.
 """
 
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import math
+import os
 import re
 import time
+import uuid
 from collections import Counter
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -28,8 +35,12 @@ from requests.auth import HTTPBasicAuth
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ENV = PROJECT_ROOT / "alphas" / ".env"
+DEFAULT_SIMULATION_REGISTRY = PROJECT_ROOT / "alphas" / ".brain-simulations.json"
 DEFAULT_BASE_URL = "https://api.worldquantbrain.com"
-DEFAULT_MAX_ACTIVE = 4
+MAX_CONCURRENT_SIMULATIONS = 3
+DEFAULT_MAX_ACTIVE = MAX_CONCURRENT_SIMULATIONS
+SIMULATION_LEASE_TIMEOUT_SECONDS = 60.0 * 60.0
+SIMULATION_SLOT_RETRY_SECONDS = 1.0
 DEFAULT_POLL_INTERVAL = 30.0
 SAFE_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 KEBAB_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -58,6 +69,105 @@ class AlphaReuseError(RuntimeError):
 
 class BatchTimeout(TimeoutError):
     """The internal deadline expired; rerunning resumes the saved batch."""
+
+
+class SimulationRegistry:
+    """Cross-process registry for account-wide active BRAIN simulations."""
+
+    def __init__(
+        self,
+        path: Path = DEFAULT_SIMULATION_REGISTRY,
+        *,
+        wall_time: Callable[[], float] = time.time,
+    ) -> None:
+        self.path = path
+        self._wall_time = wall_time
+
+    @contextmanager
+    def _locked_simulations(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+        with os.fdopen(descriptor, "r+", encoding="utf-8") as registry_file:
+            fcntl.flock(registry_file.fileno(), fcntl.LOCK_EX)
+            try:
+                registry_file.seek(0)
+                source = registry_file.read().strip()
+                state = json.loads(source) if source else {"simulations": {}}
+                simulations = (
+                    state.get("simulations") if isinstance(state, dict) else None
+                )
+                if not isinstance(simulations, dict):
+                    raise ValueError(f"Invalid simulation registry: {self.path}")
+
+                now = self._wall_time()
+                for lease_id, entry in list(simulations.items()):
+                    started_at = (
+                        entry.get("started_at") if isinstance(entry, dict) else None
+                    )
+                    if not isinstance(started_at, (int, float)):
+                        raise ValueError(
+                            f"Invalid simulation lease {lease_id!r}: {self.path}"
+                        )
+                    if now - float(started_at) >= SIMULATION_LEASE_TIMEOUT_SECONDS:
+                        del simulations[lease_id]
+
+                yield simulations
+
+                registry_file.seek(0)
+                json.dump(
+                    {"simulations": simulations},
+                    registry_file,
+                    indent=2,
+                    sort_keys=True,
+                    ensure_ascii=False,
+                )
+                registry_file.write("\n")
+                registry_file.truncate()
+                registry_file.flush()
+                os.fsync(registry_file.fileno())
+            finally:
+                fcntl.flock(registry_file.fileno(), fcntl.LOCK_UN)
+
+    def try_acquire(
+        self,
+        *,
+        candidate: str,
+        workdir: Path,
+        location: str | None = None,
+    ) -> str | None:
+        with self._locked_simulations() as simulations:
+            if len(simulations) >= MAX_CONCURRENT_SIMULATIONS:
+                return None
+            lease_id = uuid.uuid4().hex
+            simulations[lease_id] = {
+                "candidate": candidate,
+                "workdir": str(workdir.resolve()),
+                "location": location,
+                "started_at": self._wall_time(),
+            }
+            return lease_id
+
+    def update_location(self, lease_id: str, location: str) -> bool:
+        with self._locked_simulations() as simulations:
+            entry = simulations.get(lease_id)
+            if not isinstance(entry, dict):
+                return False
+            entry["location"] = location
+            return True
+
+    def release(self, lease_id: str | None) -> bool:
+        if lease_id is None:
+            return False
+        with self._locked_simulations() as simulations:
+            return simulations.pop(lease_id, None) is not None
+
+    def reset(self) -> None:
+        with self._locked_simulations() as simulations:
+            simulations.clear()
+
+    def snapshot(self) -> dict[str, dict[str, Any]]:
+        with self._locked_simulations() as simulations:
+            return {lease_id: dict(entry) for lease_id, entry in simulations.items()}
 
 
 @dataclass(frozen=True)
@@ -99,13 +209,16 @@ class ActiveSimulation:
     directory: Path
     location: str
     requested_at: float
+    lease_id: str | None
     next_poll: float = 0.0
 
 
 def load_env(path: Path = DEFAULT_ENV) -> dict[str, str]:
     """Read BRAIN credentials without exposing them in artifacts."""
     values: dict[str, str] = {}
-    for line_number, source in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    for line_number, source in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), 1
+    ):
         line = source.strip()
         if not line or line.startswith("#"):
             continue
@@ -293,6 +406,71 @@ class BrainClient:
     def set_alpha_name(self, alpha_id: str, name: str) -> APIResponse:
         return self.request("PATCH", f"alphas/{alpha_id}", json={"name": name})
 
+    def submission_checks(
+        self,
+        alpha_id: str,
+        *,
+        max_wait: float = 300.0,
+        poll_interval: float = 5.0,
+    ) -> dict[str, Any]:
+        """Wait for a non-empty submission-check response."""
+        if not math.isfinite(max_wait) or max_wait <= 0:
+            raise ValueError("max_wait must be positive and finite")
+        started = self._monotonic()
+        while True:
+            response = self.request("GET", f"alphas/{alpha_id}/check")
+            body = response.body
+            if isinstance(body, dict):
+                in_sample = body.get("is")
+                checks = (
+                    in_sample.get("checks") if isinstance(in_sample, dict) else None
+                )
+                if not isinstance(checks, list):
+                    raise BrainProtocolError(
+                        f"Submission checks for {alpha_id} omitted is.checks"
+                    )
+                return body
+            if body is not None and not (isinstance(body, str) and not body.strip()):
+                raise BrainProtocolError(
+                    f"Submission checks for {alpha_id} are invalid"
+                )
+            elapsed = self._monotonic() - started
+            if elapsed >= max_wait:
+                raise BatchTimeout(f"Submission checks for {alpha_id} timed out")
+            delay = retry_after_seconds(response.headers, poll_interval)
+            self._sleep(min(max(delay, 0.25), max_wait - elapsed))
+
+    def submit_alpha(
+        self,
+        alpha_id: str,
+        *,
+        max_wait: float = 300.0,
+        poll_interval: float = 5.0,
+    ) -> dict[str, Any]:
+        """Submit an Alpha and verify the eventual ACTIVE/OS state."""
+        if not math.isfinite(max_wait) or max_wait <= 0:
+            raise ValueError("max_wait must be positive and finite")
+        before = self.alpha(alpha_id)
+        expected_name = before.get("name")
+        submission = self.request("POST", f"alphas/{alpha_id}/submit", expected=(201,))
+        started = self._monotonic()
+        delay = retry_after_seconds(submission.headers, poll_interval)
+        if delay > 0:
+            self._sleep(min(delay, max_wait))
+
+        while True:
+            detail = self.alpha(alpha_id)
+            if detail.get("name") != expected_name:
+                raise BrainProtocolError(
+                    f"Alpha {alpha_id} name changed during submission"
+                )
+            if detail.get("status") == "ACTIVE" and detail.get("stage") == "OS":
+                return {"submission": submission.as_dict(), "alpha": detail}
+            elapsed = self._monotonic() - started
+            if elapsed >= max_wait:
+                raise BatchTimeout(f"Submission for {alpha_id} timed out")
+            self._sleep(min(poll_interval, max_wait - elapsed))
+
 
 def _normalized_candidate(source: Mapping[str, Any]) -> dict[str, Any]:
     expression = source.get("regular", source.get("expression"))
@@ -347,7 +525,9 @@ def load_candidates(path: Path) -> list[dict[str, Any]]:
     return candidates
 
 
-def validate_candidate_names(candidates: Iterable[Mapping[str, Any]], candidate_id: str) -> None:
+def validate_candidate_names(
+    candidates: Iterable[Mapping[str, Any]], candidate_id: str
+) -> None:
     """Require the documented BRAIN name format for this candidate workdir."""
     if not SAFE_KEY.fullmatch(candidate_id):
         raise ValueError(f"Candidate workdir name is unsafe: {candidate_id!r}")
@@ -355,9 +535,7 @@ def validate_candidate_names(candidates: Iterable[Mapping[str, Any]], candidate_
     for candidate in candidates:
         name = candidate.get("name")
         if not isinstance(name, str) or not name.startswith(prefix):
-            raise ValueError(
-                f"Candidate name must start with {prefix!r}: {name!r}"
-            )
+            raise ValueError(f"Candidate name must start with {prefix!r}: {name!r}")
         loop_id, separator, slug = name[len(prefix) :].partition("-")
         if (
             not separator
@@ -463,6 +641,28 @@ def _summary(
     }
 
 
+def _is_concurrency_limit_error(error: Exception) -> bool:
+    if not isinstance(error, BrainAPIError) or error.response.status_code != 429:
+        return False
+    return "CONCURRENT_SIMULATION_LIMIT_EXCEEDED" in json.dumps(
+        error.response.body, ensure_ascii=False
+    )
+
+
+def _release_active_lease(
+    registry: SimulationRegistry, active: ActiveSimulation
+) -> None:
+    if active.lease_id is None:
+        return
+    creation_path = active.directory / "creation.json"
+    if creation_path.exists():
+        creation = read_json(creation_path)
+        creation["global_count_active"] = False
+        write_json(creation_path, creation)
+    registry.release(active.lease_id)
+    active.lease_id = None
+
+
 def simulate_candidates(
     client: BrainClient,
     candidates: list[dict[str, Any]],
@@ -470,12 +670,14 @@ def simulate_candidates(
     *,
     max_active: int = DEFAULT_MAX_ACTIVE,
     max_runtime: float = 540.0,
+    registry: SimulationRegistry | None = None,
 ) -> dict[str, Any]:
     """Run server-side simulations concurrently and persist resumable artifacts."""
     if max_active < 1:
         raise ValueError("max_active must be positive")
     if not math.isfinite(max_runtime) or max_runtime <= 0:
         raise ValueError("max_runtime must be positive and finite")
+    registry = registry or SimulationRegistry()
     run_dir.mkdir(parents=True, exist_ok=True)
     pending: list[tuple[dict[str, Any], Path]] = []
     active: dict[str, ActiveSimulation] = {}
@@ -506,11 +708,18 @@ def simulate_candidates(
             )
         elif (directory / "creation.json").exists():
             creation = read_json(directory / "creation.json")
+            lease_id = creation.get("lease_id")
+            if not creation.get("global_count_active"):
+                registry.release(lease_id if isinstance(lease_id, str) else None)
+                lease_id = None
+            elif not isinstance(lease_id, str):
+                lease_id = None
             active[candidate["key"]] = ActiveSimulation(
                 candidate,
                 directory,
                 creation["location"],
                 float(creation["requested_at"]),
+                lease_id,
             )
         else:
             pending.append((candidate, directory))
@@ -518,29 +727,54 @@ def simulate_candidates(
     started = client._monotonic()
     while pending or active:
         if client._monotonic() - started >= max_runtime:
-            write_json(run_dir / "summary.json", _summary(candidates, results, failures, pending, active))
+            write_json(
+                run_dir / "summary.json",
+                _summary(candidates, results, failures, pending, active),
+            )
             raise BatchTimeout("Batch deadline reached; rerun the command to resume")
 
         while pending and len(active) < max_active:
-            candidate, directory = pending.pop(0)
+            candidate, directory = pending[0]
+            lease_id = registry.try_acquire(
+                candidate=candidate["key"], workdir=directory
+            )
+            if lease_id is None:
+                break
+            pending.pop(0)
             requested_at = client._wall_time()
             try:
                 location, response = client.create_simulation(_payload(candidate))
             except (BrainAPIError, requests.RequestException) as error:
+                registry.release(lease_id)
+                if _is_concurrency_limit_error(error):
+                    pending.insert(0, (candidate, directory))
+                    delay = retry_after_seconds(
+                        error.response.headers,
+                        SIMULATION_SLOT_RETRY_SECONDS,
+                        now=client._wall_time(),
+                    )
+                    client._sleep(max(delay, SIMULATION_SLOT_RETRY_SECONDS))
+                    break
                 failure = {"phase": "create", "message": str(error)}
                 write_json(directory / "error.json", failure)
                 failures.append({"key": candidate["key"], "error": failure})
                 continue
+            if not registry.update_location(lease_id, location):
+                raise BrainProtocolError(
+                    f"Simulation lease expired before creation completed: {lease_id}"
+                )
             write_json(
                 directory / "creation.json",
                 {
                     "location": location,
                     "requested_at": requested_at,
+                    "lease_id": lease_id,
+                    "global_count_active": True,
                     "response": response.as_dict(),
                 },
             )
             active[candidate["key"]] = ActiveSimulation(
-                candidate, directory, location, requested_at
+                candidate, directory, location, requested_at, lease_id
             )
 
         now = client._monotonic()
@@ -556,9 +790,11 @@ def simulate_candidates(
                 if not isinstance(body, dict):
                     raise BrainProtocolError(f"Simulation status for {key} is invalid")
                 if body.get("status") == "ERROR" or body.get("error"):
+                    _release_active_lease(registry, item)
                     raise BrainProtocolError(f"Simulation {key} failed: {body}")
                 alpha_id = body.get("alpha")
                 if isinstance(alpha_id, str):
+                    _release_active_lease(registry, item)
                     results.append(_complete_candidate(client, item, alpha_id, claimed))
                     del active[key]
                     continue
@@ -580,6 +816,8 @@ def simulate_candidates(
         if active and not made_request:
             next_poll = min(item.next_poll for item in active.values())
             client._sleep(max(min(next_poll - client._monotonic(), 10.0), 0.25))
+        elif pending and not active and not made_request:
+            client._sleep(SIMULATION_SLOT_RETRY_SECONDS)
 
     summary = _summary(candidates, results, failures, pending, active)
     write_json(run_dir / "summary.json", summary)
@@ -595,11 +833,27 @@ def build_parser() -> argparse.ArgumentParser:
     simulate.add_argument("--run-dir", type=Path, required=True)
     simulate.add_argument("--max-active", type=int, default=DEFAULT_MAX_ACTIVE)
     simulate.add_argument("--max-runtime", type=float, default=540.0)
+    check = subparsers.add_parser("check")
+    check.add_argument("alpha_id")
+    check.add_argument("--max-wait", type=float, default=300.0)
+    submit = subparsers.add_parser("submit")
+    submit.add_argument("alpha_id")
+    submit.add_argument("--max-wait", type=float, default=300.0)
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    client = BrainClient(args.env)
+    if args.command == "check":
+        result = client.submission_checks(args.alpha_id, max_wait=args.max_wait)
+        print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+        return
+    if args.command == "submit":
+        result = client.submit_alpha(args.alpha_id, max_wait=args.max_wait)
+        print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+        return
+
     try:
         run_dir = run_dir_for_current_workdir(args.run_dir)
     except ValueError as error:
@@ -610,7 +864,7 @@ def main() -> None:
     except ValueError as error:
         raise SystemExit(str(error)) from error
     result = simulate_candidates(
-        BrainClient(args.env),
+        client,
         candidates,
         run_dir,
         max_active=args.max_active,

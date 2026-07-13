@@ -352,11 +352,13 @@ def test_atomic_save_failure_preserves_previous_state(alphas_dir, monkeypatch):
     assert list(alphas_dir.glob(".state.*.tmp")) == []
 
 
-def test_discard_pending_is_a_noop_without_state(alphas_dir, capsys):
+def test_discard_pending_resets_simulation_registry_without_state(alphas_dir, capsys):
     mcts.cmd_discard_pending(Namespace())
 
     assert capsys.readouterr().out == ""
-    assert not alphas_dir.exists()
+    assert json.loads(mcts._simulation_registry_path().read_text()) == {
+        "simulations": {}
+    }
 
 
 def test_discard_pending_keeps_tombstones_retries_cleanup_and_never_reuses_ids(
@@ -386,6 +388,20 @@ def test_discard_pending_keeps_tombstones_retries_cleanup_and_never_reuses_ids(
         "nodes": nodes,
     }
     mcts._save_state(state)
+    mcts._simulation_registry_path().write_text(
+        json.dumps(
+            {
+                "simulations": {
+                    "stale": {
+                        "candidate": "0003",
+                        "workdir": str(mcts._candidate_dir("0003")),
+                        "location": "https://brain.test/simulations/stale",
+                        "started_at": 1.0,
+                    }
+                }
+            }
+        )
+    )
     for cid in ("0003", "0005"):
         mcts._candidate_dir(cid).mkdir()
         (mcts._candidate_dir(cid) / "sentinel").write_text(cid)
@@ -404,6 +420,9 @@ def test_discard_pending_keeps_tombstones_retries_cleanup_and_never_reuses_ids(
     assert cleaned["nodes"]["0005"]["status"] == "discarded"
     assert cleaned["next_candidate_num"] == 5
     assert all(count == 0 for count in mcts._pending_counts(cleaned).values())
+    assert json.loads(mcts._simulation_registry_path().read_text()) == {
+        "simulations": {}
+    }
 
     # Cleanup output is repeatable until the dispatcher removes the directories.
     mcts.cmd_discard_pending(Namespace())
