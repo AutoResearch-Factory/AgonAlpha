@@ -90,9 +90,23 @@ python ${CLAUDE_PLUGIN_ROOT}/scripts/brain_client.py --env ${CLAUDE_PLUGIN_ROOT}
 
 ### Artifact 与恢复
 
-每个候选写入 `<run-dir>/<name>/`。主要文件为 `candidate.json`、`payload.json`、`creation.json`、`status-latest.json`、`alpha-before-name.json`、`name-response.json`、`alpha.json`、`result.json` 或 `error.json`；批次汇总写入 `<run-dir>/summary.json`。JSON 写入先落在同目录的 `*.json.tmp`，再原子替换；凭据不会写入 artifact。
+所有候选目录统一放在 `<run-dir>/brain/` 下，每个候选写入 `<run-dir>/brain/<name>/`。运行中间产物在 `brain/` 内部，批次汇总 `brain_summary.json` 作为最终结果写入 `<run-dir>/brain_summary.json`。
 
-`max-runtime` 到期时，命令先写入 `summary.json` 再结束。本次已创建的 BRAIN simulation 不会被取消：用相同候选文件和同一 `--run-dir` 重跑，即会从 `creation.json` 中保存的 Location 继续轮询；已有 `result.json` 会复用，尚未创建的候选继续排队。已有 `error.json` 的候选视为终态失败，不自动重新提交。
+每个候选目录包含以下文件：
+
+| 文件 | 写入阶段 | 说明 |
+|---|---|---|
+| `candidate.json` | 初始化 | 候选输入快照 |
+| `payload.json` | 初始化 | 发给 BRAIN 的请求体 |
+| `creation.json` | 提交后 | simulation location、lease 和时间戳 |
+| `status-latest.json` | 轮询中 | 最近一次轮询的完整响应 |
+| `alpha-before-name.json` | 完成时 | 命名前的 Alpha 详情 |
+| `name-response.json` | 完成时 | `set_alpha_name` 响应 |
+| `alpha.json` | 完成时 | 命名后的 Alpha 详情 |
+| `result.json` | 完成时 | 最终结果（含 alpha_id、指标等） |
+| `error.json` | 失败时 | 错误阶段和消息 |
+
+`max-runtime` 到期时，命令先写入 `brain_summary.json` 再结束。本次已创建的 BRAIN simulation 不会被取消：用相同候选文件和同一 `--run-dir` 重跑，即会从 `creation.json` 中保存的 Location 继续轮询；已有 `result.json` 会复用，尚未创建的候选继续排队。已有 `error.json` 的候选视为终态失败，不自动重新提交。
 
 完成 simulation 后，客户端会获取 Alpha 并核对 ID、表达式和 settings；同一批中同一 Alpha 只能被一个候选认领。只有确认返回 Alpha 不早于本次 simulation 请求且没有不同的现有名称时，客户端才会 `PATCH` 设置候选名称。
 

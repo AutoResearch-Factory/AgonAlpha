@@ -253,8 +253,8 @@ def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _artifact(directory: Path, filename: str) -> Path:
-    return directory / ARTIFACTS_SUBDIR / filename
+def _candidate_dir(run_dir: Path, key: str) -> Path:
+    return run_dir / ARTIFACTS_SUBDIR / key
 
 
 def retry_after_seconds(
@@ -595,7 +595,7 @@ def _complete_candidate(
 ) -> dict[str, Any]:
     candidate = active.candidate
     detail = client.alpha(alpha_id)
-    write_json(_artifact(active.directory, "alpha-before-name.json"), detail)
+    write_json(active.directory / "alpha-before-name.json", detail)
     if detail.get("id") != alpha_id:
         raise BrainProtocolError(f"Alpha response returned {detail.get('id')!r}")
     previous_key = claimed.get(alpha_id)
@@ -625,7 +625,7 @@ def _complete_candidate(
         raise AlphaReuseError(f"Alpha {alpha_id} is already named {current_name!r}")
     if current_name != candidate["name"]:
         response = client.set_alpha_name(alpha_id, candidate["name"])
-        write_json(_artifact(active.directory, "name-response.json"), response.as_dict())
+        write_json(active.directory / "name-response.json", response.as_dict())
 
     try:
         final = client.alpha(alpha_id)
@@ -633,7 +633,7 @@ def _complete_candidate(
         final = {**detail, "name": candidate["name"]}
     if final.get("name") != candidate["name"]:
         raise BrainProtocolError(f"Alpha {alpha_id} name was not applied")
-    write_json(_artifact(active.directory, "alpha.json"), final)
+    write_json(active.directory / "alpha.json", final)
     result = {
         "candidate": candidate,
         "alpha_id": alpha_id,
@@ -644,7 +644,7 @@ def _complete_candidate(
         "status": final.get("status"),
         "stage": final.get("stage"),
     }
-    write_json(_artifact(active.directory, "result.json"), result)
+    write_json(active.directory / "result.json", result)
     claimed[alpha_id] = candidate["key"]
     return result
 
@@ -679,7 +679,7 @@ def _release_active_lease(
 ) -> None:
     if active.lease_id is None:
         return
-    creation_path = _artifact(active.directory, "creation.json")
+    creation_path = active.directory / "creation.json"
     if creation_path.exists():
         creation = read_json(creation_path)
         creation["global_count_active"] = False
@@ -711,15 +711,15 @@ def simulate_candidates(
     claimed: dict[str, str] = {}
 
     for candidate in candidates:
-        directory = run_dir / candidate["key"]
+        directory = _candidate_dir(run_dir, candidate["key"])
         directory.mkdir(parents=True, exist_ok=True)
-        candidate_path = _artifact(directory, "candidate.json")
+        candidate_path = directory / "candidate.json"
         if candidate_path.exists() and read_json(candidate_path) != candidate:
             raise ValueError(f"Saved candidate differs from input: {candidate['key']}")
         write_json(candidate_path, candidate)
-        write_json(_artifact(directory, "payload.json"), _payload(candidate))
-        if _artifact(directory, "result.json").exists():
-            result = read_json(_artifact(directory, "result.json"))
+        write_json(directory / "payload.json", _payload(candidate))
+        if (directory / "result.json").exists():
+            result = read_json(directory / "result.json")
             alpha_id = result.get("alpha_id")
             if not isinstance(alpha_id, str):
                 raise ValueError(f"Saved result has no Alpha ID: {directory}")
@@ -727,12 +727,12 @@ def simulate_candidates(
                 raise AlphaReuseError(f"Saved Alpha {alpha_id} is duplicated")
             claimed[alpha_id] = candidate["key"]
             results.append(result)
-        elif _artifact(directory, "error.json").exists():
+        elif (directory / "error.json").exists():
             failures.append(
-                {"key": candidate["key"], "error": read_json(_artifact(directory, "error.json"))}
+                {"key": candidate["key"], "error": read_json(directory / "error.json")}
             )
-        elif _artifact(directory, "creation.json").exists():
-            creation = read_json(_artifact(directory, "creation.json"))
+        elif (directory / "creation.json").exists():
+            creation = read_json(directory / "creation.json")
             lease_id = creation.get("lease_id")
             if not creation.get("global_count_active"):
                 registry.release(lease_id if isinstance(lease_id, str) else None)
@@ -761,7 +761,7 @@ def simulate_candidates(
     while pending or active:
         if client._monotonic() - started >= max_runtime:
             write_json(
-                run_dir / "summary.json",
+                run_dir / "brain_summary.json",
                 _summary(candidates, results, failures, pending, active),
             )
             raise BatchTimeout("Batch deadline reached; rerun the command to resume")
@@ -789,7 +789,7 @@ def simulate_candidates(
                     client._sleep(max(delay, SIMULATION_SLOT_RETRY_SECONDS))
                     break
                 failure = {"phase": "create", "message": str(error)}
-                write_json(_artifact(directory, "error.json"), failure)
+                write_json(directory / "error.json", failure)
                 failures.append({"key": candidate["key"], "error": failure})
                 continue
             if not registry.update_location(lease_id, location):
@@ -797,7 +797,7 @@ def simulate_candidates(
                     f"Simulation lease expired before creation completed: {lease_id}"
                 )
             write_json(
-                _artifact(directory, "creation.json"),
+                directory / "creation.json",
                 {
                     "location": location,
                     "requested_at": requested_at,
@@ -818,7 +818,7 @@ def simulate_candidates(
             made_request = True
             try:
                 response = client.simulation_status(item.location)
-                write_json(_artifact(item.directory, "status-latest.json"), response.as_dict())
+                write_json(item.directory / "status-latest.json", response.as_dict())
                 body = response.body
                 if not isinstance(body, dict):
                     raise BrainProtocolError(f"Simulation status for {key} is invalid")
@@ -842,7 +842,7 @@ def simulate_candidates(
                 requests.RequestException,
             ) as error:
                 failure = {"phase": "poll-or-finish", "message": str(error)}
-                write_json(_artifact(item.directory, "error.json"), failure)
+                write_json(item.directory / "error.json", failure)
                 failures.append({"key": key, "error": failure})
                 del active[key]
 
@@ -853,7 +853,7 @@ def simulate_candidates(
             client._sleep(SIMULATION_SLOT_RETRY_SECONDS)
 
     summary = _summary(candidates, results, failures, pending, active)
-    write_json(run_dir / "summary.json", summary)
+    write_json(run_dir / "brain_summary.json", summary)
     return summary
 
 
