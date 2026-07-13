@@ -7,7 +7,7 @@ The settings panel can be found by clicking the Settings button at the top right
 
 ## Language
 
-Fast Expression is available on BRAIN. To learn more, refer to [Available Operators]($reference/operators)
+Fast Expression is available on BRAIN. To learn more, refer to the [Available Operators](../syntax/operators.md).
 
 ## Instrument type
 
@@ -61,11 +61,11 @@ When Neutralization = Industry or Subindustry, all the instruments in the Alpha 
 
 To learn more about Neutralization, refer the [Neutralization FAQ](https://support.worldquantbrain.com/hc/en-us/sections/4418582007959-Neutralizing-Alphas) section.
 
-![settings_view](../../images/simulation-settings/018-settings_view.png)
+![settings_view](images/simulation-settings--018-settings_view.png)
 
 ## Pasteurize
 
-![simulation_settings_pasteurize.png](../../images/simulation-settings/020-simulation_settings_pasteurize.png)
+![simulation_settings_pasteurize.png](images/simulation-settings--020-simulation_settings_pasteurize.png)
 
 Pasteurization replaces input values with NaN (pasteurizes) for instruments not in the Alpha universe. When Pasteurize = ‘On’, inputs to will be converted to NaN for instruments not in the universe selected in Simulation Settings. When Pasteurize = ‘Off’, this operation does not happen and all available inputs are used.
 
@@ -101,7 +101,7 @@ The pasteurize operator in the first group_rank pasteurizes input to the Alpha u
 
 ## Nan Handling
 
-![simulation_settings_nan_handling.png](../../images/simulation-settings/025-simulation_settings_nan_handling.png)
+![simulation_settings_nan_handling.png](images/simulation-settings--025-simulation_settings_nan_handling.png)
 
 NaNHandling replaces NaN values with other values. If NaNHandling: ‘On’, NaN values are handled based on operator type. For time series operators, if all inputs are NaN, 0 is returned. For group operators returning one value per group (e.g. groupmedian, groupcount), if the input value for an instrument is NaN, the value for the group is returned.
 

@@ -7,25 +7,25 @@ Last modified: 2025-03-12T05:53:18.035922-04:00
 
 Powered by advanced AI technologies, such as NLP, the [Data Explorer](https://platform.worldquantbrain.com/data) helps you quickly and accurately identify the data fields to implement your idea.
 
-![DE1.png](../../images/how-use-data-explorer/003-de1.png)
+![DE1.png](images/how-use-data-explorer--003-de1.png)
 
 ### Searching for fields based on an idea
 
 Let’s say you have an Alpha idea using market sentiment. You can easily search for related datasets and data fields in the Data Explorer. Notice that you will have to pre-define region, delay and universe prior to your search. Some data fields are present only in certain regions and delays.
 
-![DE2.png](../../images/how-use-data-explorer/006-de2.png)
+![DE2.png](images/how-use-data-explorer--006-de2.png)
 
 ### Searching for fields based on specific criteria
 
 You can filter data fields based on criteria such as coverage, type, count of Alphas and users. For example, you can search for high coverage data fields from Company Fundamental Data for Equity dataset in CHN region and were used in at least 5 submitted Alphas. You can later sort these data fields by Alpha count to see which fields are used less, i.e., less crowded.
 
-![DE3.png](../../images/how-use-data-explorer/009-de3.png)
+![DE3.png](images/how-use-data-explorer--009-de3.png)
 
 ### Searching and filtering datasets
 
 While you can click on the “browse by category” button, you can also search for datasets using “dataset category” or “dataset name”. This is helpful because it also allows you to filter these datasets by coverage, value score and crowdedness (measured by Alpha and user count). For example, you can search for datasets related to “fundamental” that have more than 100 active users. Note that you have to go to the “Datasets” tab to see the results.
 
-![DE4.png](../../images/how-use-data-explorer/012-de4.png)
+![DE4.png](images/how-use-data-explorer--012-de4.png)
 
 ## Rule of thumb when searching for data fields
 
@@ -37,4 +37,4 @@ For some well-known concepts, try searching for the abbreviations along with the
 
 The flowchart below is a suggested research framework with the inclusion of Data Explorer. You can use it as a reference for creating one for yourself.
 
-![data_explorer_flow.png](../../images/how-use-data-explorer/017-data_explorer_flow.png)
+![data_explorer_flow.png](images/how-use-data-explorer--017-data_explorer_flow.png)
