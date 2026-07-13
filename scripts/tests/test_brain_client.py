@@ -475,7 +475,7 @@ def test_simulate_candidates_keeps_multiple_jobs_inflight_and_names_results(tmp_
         "name-c",
     ]
     for key in "abc":
-        result = json.loads((tmp_path / "run" / key / "result.json").read_text())
+        result = json.loads((tmp_path / "run" / key / ".brain" / "result.json").read_text())
         assert result["alpha_id"] == f"alpha-{key}"
 
 
@@ -495,7 +495,7 @@ def test_concurrency_limit_error_requeues_instead_of_becoming_terminal(tmp_path)
     assert summary["failure_count"] == 0
     assert client.create_attempts == 2
     assert clock.sleeps[0] == 2.0
-    assert not (tmp_path / "run" / "a" / "error.json").exists()
+    assert not (tmp_path / "run" / "a" / ".brain" / "error.json").exists()
     assert registry.snapshot() == {}
 
 
@@ -527,9 +527,10 @@ def test_simulate_candidates_resumes_saved_location_without_resubmitting(tmp_pat
     run_dir = tmp_path / "run"
     active_dir = run_dir / "a"
     active_dir.mkdir(parents=True)
-    brain_client.write_json(active_dir / "candidate.json", candidates[0])
+    arts = active_dir / ".brain"
+    brain_client.write_json(arts / "candidate.json", candidates[0])
     brain_client.write_json(
-        active_dir / "payload.json", brain_client._payload(candidates[0])
+        arts / "payload.json", brain_client._payload(candidates[0])
     )
     location = "https://brain.test/simulations/resumed-a"
     registry = simulation_registry(tmp_path, clock)
@@ -538,7 +539,7 @@ def test_simulate_candidates_resumes_saved_location_without_resubmitting(tmp_pat
     )
     assert lease_id is not None
     brain_client.write_json(
-        active_dir / "creation.json",
+        arts / "creation.json",
         {
             "location": location,
             "requested_at": clock.wall(),
@@ -556,7 +557,7 @@ def test_simulate_candidates_resumes_saved_location_without_resubmitting(tmp_pat
         "alpha_id": "saved-b",
         "name": "name-b",
     }
-    brain_client.write_json(complete_dir / "result.json", saved_result)
+    brain_client.write_json(complete_dir / ".brain" / "result.json", saved_result)
 
     summary = brain_client.simulate_candidates(
         client, candidates, run_dir, registry=registry
@@ -806,12 +807,13 @@ def test_simulate_candidates_rejects_corrupt_creation_json(tmp_path):
     run_dir = tmp_path / "run"
     directory = run_dir / "a"
     directory.mkdir(parents=True)
-    brain_client.write_json(directory / "candidate.json", candidates[0])
+    arts = directory / ".brain"
+    brain_client.write_json(arts / "candidate.json", candidates[0])
     brain_client.write_json(
-        directory / "payload.json", brain_client._payload(candidates[0])
+        arts / "payload.json", brain_client._payload(candidates[0])
     )
     brain_client.write_json(
-        directory / "creation.json",
+        arts / "creation.json",
         {
             "location": None,
             "requested_at": 1.0,
