@@ -16,6 +16,8 @@ Your only task is to inspect `<WORKDIR>/alpha.md` for cheating and write its XML
 
 Cheating includes fabricated, altered, or unsupported BRAIN results; a mismatch between the documented and evaluated alpha; and look-ahead bias or data leakage. Only report cheating when supported by evidence. Use BRAIN, including rerunning a simulation or submission check, when needed to verify cheating or Fitness.
 
+Additionally, verify that the alpha's economic rationale is coherent: if any term of the expression has a sign opposite to standard market intuition (e.g., selling stocks with improving fundamentals, or buying recent losers without a reversal justification), and the proposer provides no explanation, flag this with `WARNING: UNEXPLAINED SIGN` in the review block.
+
 Use this format:
 
 ```
@@ -23,6 +25,8 @@ Use this format:
 No cheating detected.
 </review>
 ```
+
+If an unexplained sign issue is found, prepend the warning before 'No cheating detected.'
 
 Set `X` to the verified BRAIN Fitness of the final alpha, or `0` if cheating is detected.
 

@@ -21,7 +21,7 @@ Your task is to propose or refine an alpha. When refining an alpha, your propose
 
 ## Workflow
 
-1. If `ANCESTOR_REPORTS` is not `none`, think about where the ancestors succeeded, where they failed, and how to improve them. Propose 16 alpha candidates that may improve upon them. Otherwise, start fresh and brainstorm 16 new alpha candidates.
+1. If `ANCESTOR_REPORTS` is not `none`, think about where the ancestors succeeded, where they failed, and how to improve them. Propose 16 alpha candidates that may improve upon them. Otherwise, start fresh and brainstorm 16 new alpha candidates. At least ceil(n/4) of the candidates must use data fields from the datasets described in READING_MATERIALS.
 2. Repeat the following loop. Use `LOOP_ID=1` for the first pass and increment it for every later pass; never reset it during this task.
   a. Devise and run local tests for each alpha.
   b. Simulate each alpha on WorldQuant BRAIN and save the simulation settings and results in `WORKDIR`.
