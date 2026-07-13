@@ -53,18 +53,18 @@ def _simulation_registry_path() -> Path:
 def _reset_simulation_registry() -> None:
     path = _simulation_registry_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
-    with os.fdopen(descriptor, "r+", encoding="utf-8") as registry_file:
-        fcntl.flock(registry_file.fileno(), fcntl.LOCK_EX)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    with os.fdopen(fd, "r+", encoding="utf-8") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
         try:
-            registry_file.seek(0)
-            json.dump({"simulations": {}}, registry_file, indent=2, sort_keys=True)
-            registry_file.write("\n")
-            registry_file.truncate()
-            registry_file.flush()
-            os.fsync(registry_file.fileno())
+            f.seek(0)
+            json.dump({"simulations": {}}, f, indent=2, sort_keys=True)
+            f.write("\n")
+            f.truncate()
+            f.flush()
+            os.fsync(f.fileno())
         finally:
-            fcntl.flock(registry_file.fileno(), fcntl.LOCK_UN)
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 @contextmanager
@@ -143,15 +143,13 @@ def _next_candidate_id(state: dict) -> str:
 
 
 def _score_history(state: dict) -> list[float]:
-    scores = []
-    for cid, node in state["nodes"].items():
-        if (
-            cid != ROOT_ID
-            and node.get("status") == "done"
-            and node.get("score") is not None
-        ):
-            scores.append(float(node["score"]))
-    return scores
+    return [
+        float(node["score"])
+        for cid, node in state["nodes"].items()
+        if cid != ROOT_ID
+        and node.get("status") == "done"
+        and node.get("score") is not None
+    ]
 
 
 def _percentile_reward(score: float, scores: list[float]) -> float:
@@ -159,20 +157,23 @@ def _percentile_reward(score: float, scores: list[float]) -> float:
         raise ValueError("scores must not be empty")
     if not math.isfinite(score) or any(not math.isfinite(s) for s in scores):
         raise ValueError("scores must be finite")
-    inf = sum(1 for s in scores if s < score)
-    sup = sum(1 for s in scores if s <= score)
-    rank = (inf + sup) / 2
+    below = sum(1 for s in scores if s < score)
+    at_or_below = sum(1 for s in scores if s <= score)
+    rank = (below + at_or_below) / 2
     return 10.0 * rank / len(scores)
 
 
 def _node_rewards(state: dict) -> dict[str, float]:
     scores = _score_history(state)
-    rewards: dict[str, float] = {}
-    for cid, node in state["nodes"].items():
-        if cid == ROOT_ID or node.get("status") != "done" or node.get("score") is None:
-            continue
-        rewards[cid] = _percentile_reward(float(node["score"]), scores)
-    return rewards
+    if not scores:
+        return {}
+    return {
+        cid: _percentile_reward(float(node["score"]), scores)
+        for cid, node in state["nodes"].items()
+        if cid != ROOT_ID
+        and node.get("status") == "done"
+        and node.get("score") is not None
+    }
 
 
 def _subtree_reward_sum(
@@ -327,11 +328,10 @@ def _print_next(state: dict, cid: str) -> None:
     if not ancestors:
         print("none")
         return
-    qualifiers = {0: "father", 1: "grandfather"}
+    QUALIFIERS = ("father", "grandfather")
     for i, aid in enumerate(ancestors):
-        qualifier = qualifiers.get(i)
-        label = f"ancestor {i + 1} ({qualifier})" if qualifier else f"ancestor {i + 1}"
-        print(f"- {label}: {_alpha_path(aid)}")
+        suffix = f" ({QUALIFIERS[i]})" if i < len(QUALIFIERS) else ""
+        print(f"- ancestor {i + 1}{suffix}: {_alpha_path(aid)}")
 
 
 def cmd_init(args: argparse.Namespace) -> None:
