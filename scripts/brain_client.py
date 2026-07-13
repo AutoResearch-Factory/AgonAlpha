@@ -868,10 +868,11 @@ def build_parser() -> argparse.ArgumentParser:
     simulate.add_argument("--max-runtime", type=float, default=540.0)
     check = subparsers.add_parser("check")
     check.add_argument("alpha_id")
-    check.add_argument("--max-wait", type=float, default=300.0)
+    check.add_argument("--max-wait", type=float, default=1800.0)
     submit = subparsers.add_parser("submit")
     submit.add_argument("alpha_id")
-    submit.add_argument("--max-wait", type=float, default=300.0)
+    submit.add_argument("--run-dir", type=Path, required=True)
+    submit.add_argument("--max-wait", type=float, default=1800.0)
     return parser
 
 
@@ -888,8 +889,15 @@ def main() -> None:
             raise SystemExit(1)
         return
     if args.command == "submit":
+        try:
+            run_dir = run_dir_for_current_workdir(args.run_dir)
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
         result = client.submit_alpha(args.alpha_id, max_wait=args.max_wait)
         print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+        output = run_dir / "brain_submitted.json"
+        write_json(output, result)
+        print(f"Saved to {output}")
         return
 
     try:

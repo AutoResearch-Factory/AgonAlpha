@@ -83,10 +83,11 @@ python ${CLAUDE_PLUGIN_ROOT}/scripts/brain_client.py --env ${CLAUDE_PLUGIN_ROOT}
 
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/scripts/brain_client.py --env ${CLAUDE_PLUGIN_ROOT}/alphas/.env check <alpha_id>
-python ${CLAUDE_PLUGIN_ROOT}/scripts/brain_client.py --env ${CLAUDE_PLUGIN_ROOT}/alphas/.env submit <alpha_id>
+cd <run-dir>
+python ${CLAUDE_PLUGIN_ROOT}/scripts/brain_client.py --env ${CLAUDE_PLUGIN_ROOT}/alphas/.env submit <alpha_id> --run-dir .
 ```
 
-两个命令都支持 `--max-wait <seconds>`。`check` 会在 HTTP 200 响应体为空时按 `Retry-After` 重试。`submit` 接受 HTTP 201 空响应体，然后轮询 Alpha 详情，直到确认 `status=ACTIVE`、`stage=OS` 且名称未改变。
+`check` 会自动检查，直到出结果。`submit` 需要先 `cd <run-dir>` 再运行，会自动提交并等待确认，完成后保存结果到 `<run-dir>/brain_submitted.json`。
 
 ### Artifact 与恢复
 
