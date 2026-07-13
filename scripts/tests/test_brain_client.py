@@ -208,6 +208,19 @@ def simulation_registry(tmp_path, clock):
     )
 
 
+def authenticated_client(tmp_path, clock, *, requests_=()):
+    session = FakeSession(requests_=requests_)
+    client = brain_client.BrainClient(
+        write_env(tmp_path / ".env"),
+        session=session,
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+        wall_time=clock.wall,
+    )
+    client.authenticated = True
+    return client
+
+
 def test_simulation_registry_atomically_caps_concurrent_leases(tmp_path):
     clock = Clock()
     registry = simulation_registry(tmp_path, clock)
@@ -278,20 +291,13 @@ def test_request_reauthenticates_once(tmp_path):
 def test_submission_checks_retry_empty_200_response(tmp_path):
     clock = Clock()
     checks = {"is": {"checks": [{"name": "fitness", "result": "PASS"}]}}
-    session = FakeSession(
+    client = authenticated_client(
+        tmp_path, clock,
         requests_=(
             response(200, None, {"Retry-After": "2"}),
             response(200, checks),
-        )
+        ),
     )
-    client = brain_client.BrainClient(
-        write_env(tmp_path / ".env"),
-        session=session,
-        sleep=clock.sleep,
-        monotonic=clock.monotonic,
-        wall_time=clock.wall,
-    )
-    client.authenticated = True
 
     assert client.submission_checks("alpha-1") == checks
     assert clock.sleeps == [2.0]
@@ -307,17 +313,10 @@ def test_submission_checks_waits_for_pending_to_resolve(tmp_path):
         {"name": "LOW_SHARPE", "result": "PASS"},
         {"name": "SELF_CORRELATION", "result": "PASS"},
     ]}}
-    session = FakeSession(
-        requests_=(response(200, pending), response(200, resolved))
+    client = authenticated_client(
+        tmp_path, clock,
+        requests_=(response(200, pending), response(200, resolved)),
     )
-    client = brain_client.BrainClient(
-        write_env(tmp_path / ".env"),
-        session=session,
-        sleep=clock.sleep,
-        monotonic=clock.monotonic,
-        wall_time=clock.wall,
-    )
-    client.authenticated = True
 
     assert client.submission_checks("alpha-1") == resolved
     assert len(clock.sleeps) == 1
@@ -329,15 +328,9 @@ def test_submission_checks_returns_immediately_when_fail_and_pending(tmp_path):
         {"name": "LOW_SHARPE", "result": "FAIL"},
         {"name": "SELF_CORRELATION", "result": "PENDING"},
     ]}}
-    session = FakeSession(requests_=(response(200, checks),))
-    client = brain_client.BrainClient(
-        write_env(tmp_path / ".env"),
-        session=session,
-        sleep=clock.sleep,
-        monotonic=clock.monotonic,
-        wall_time=clock.wall,
+    client = authenticated_client(
+        tmp_path, clock, requests_=(response(200, checks),)
     )
-    client.authenticated = True
 
     assert client.submission_checks("alpha-1") == checks
     assert clock.sleeps == []
@@ -353,22 +346,15 @@ def test_submit_accepts_empty_201_and_verifies_eventual_alpha_state(tmp_path):
     }
     pending = {"id": "alpha-1", "name": "candidate", "status": "PENDING", "stage": "IS"}
     active = {"id": "alpha-1", "name": "candidate", "status": "ACTIVE", "stage": "OS"}
-    session = FakeSession(
+    client = authenticated_client(
+        tmp_path, clock,
         requests_=(
             response(200, before),
             response(201, None, {"Retry-After": "2"}),
             response(200, pending),
             response(200, active),
-        )
+        ),
     )
-    client = brain_client.BrainClient(
-        write_env(tmp_path / ".env"),
-        session=session,
-        sleep=clock.sleep,
-        monotonic=clock.monotonic,
-        wall_time=clock.wall,
-    )
-    client.authenticated = True
 
     result = client.submit_alpha("alpha-1")
 
@@ -577,7 +563,7 @@ def test_simulate_candidates_resumes_saved_location_without_resubmitting(tmp_pat
     )
 
     assert summary["completed_count"] == 2
-    assert not [event for event in client.events if event[0] == "create"]
+    assert not any(event[0] == "create" for event in client.events)
     assert client.events[0] == ("poll", "a")
     assert registry.snapshot() == {}
 
@@ -596,7 +582,7 @@ def test_reused_old_alpha_is_never_renamed(tmp_path):
     assert summary["completed_count"] == 0
     assert summary["failure_count"] == 1
     assert "predates this simulation" in summary["failures"][0]["error"]["message"]
-    assert not [event for event in client.events if event[0] == "name"]
+    assert not any(event[0] == "name" for event in client.events)
 
 
 def test_alpha_without_creation_time_is_never_renamed(tmp_path):
@@ -613,7 +599,7 @@ def test_alpha_without_creation_time_is_never_renamed(tmp_path):
     assert summary["completed_count"] == 0
     assert len(summary["failures"]) == 1
     assert "no valid dateCreated" in summary["failures"][0]["error"]["message"]
-    assert not [event for event in client.events if event[0] == "name"]
+    assert not any(event[0] == "name" for event in client.events)
 
 
 # --- _checks_resolved unit tests ---
@@ -653,17 +639,10 @@ def test_submission_checks_keeps_polling_on_empty_checks_list(tmp_path):
     clock = Clock()
     empty = {"is": {"checks": []}}
     resolved = {"is": {"checks": [{"name": "A", "result": "PASS"}]}}
-    session = FakeSession(
-        requests_=(response(200, empty), response(200, resolved))
+    client = authenticated_client(
+        tmp_path, clock,
+        requests_=(response(200, empty), response(200, resolved)),
     )
-    client = brain_client.BrainClient(
-        write_env(tmp_path / ".env"),
-        session=session,
-        sleep=clock.sleep,
-        monotonic=clock.monotonic,
-        wall_time=clock.wall,
-    )
-    client.authenticated = True
 
     assert client.submission_checks("alpha-1") == resolved
     assert len(clock.sleeps) == 1
@@ -671,15 +650,10 @@ def test_submission_checks_keeps_polling_on_empty_checks_list(tmp_path):
 
 def test_submission_checks_raises_batch_timeout(tmp_path):
     clock = Clock()
-    session = FakeSession(requests_=(response(200, None), response(200, None)))
-    client = brain_client.BrainClient(
-        write_env(tmp_path / ".env"),
-        session=session,
-        sleep=clock.sleep,
-        monotonic=clock.monotonic,
-        wall_time=clock.wall,
+    client = authenticated_client(
+        tmp_path, clock,
+        requests_=(response(200, None), response(200, None)),
     )
-    client.authenticated = True
 
     with pytest.raises(brain_client.BatchTimeout, match="timed out"):
         client.submission_checks("alpha-1", max_wait=1.0)
@@ -687,15 +661,9 @@ def test_submission_checks_raises_batch_timeout(tmp_path):
 
 def test_submission_checks_raises_protocol_error_on_missing_checks(tmp_path):
     clock = Clock()
-    session = FakeSession(requests_=(response(200, {"is": {}}),))
-    client = brain_client.BrainClient(
-        write_env(tmp_path / ".env"),
-        session=session,
-        sleep=clock.sleep,
-        monotonic=clock.monotonic,
-        wall_time=clock.wall,
+    client = authenticated_client(
+        tmp_path, clock, requests_=(response(200, {"is": {}}),)
     )
-    client.authenticated = True
 
     with pytest.raises(brain_client.BrainProtocolError, match="omitted is.checks"):
         client.submission_checks("alpha-1")
@@ -703,15 +671,9 @@ def test_submission_checks_raises_protocol_error_on_missing_checks(tmp_path):
 
 def test_submission_checks_raises_protocol_error_on_invalid_body(tmp_path):
     clock = Clock()
-    session = FakeSession(requests_=(response(200, 42),))
-    client = brain_client.BrainClient(
-        write_env(tmp_path / ".env"),
-        session=session,
-        sleep=clock.sleep,
-        monotonic=clock.monotonic,
-        wall_time=clock.wall,
+    client = authenticated_client(
+        tmp_path, clock, requests_=(response(200, 42),)
     )
-    client.authenticated = True
 
     with pytest.raises(brain_client.BrainProtocolError, match="invalid"):
         client.submission_checks("alpha-1")
