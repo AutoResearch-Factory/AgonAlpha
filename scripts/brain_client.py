@@ -44,7 +44,7 @@ SIMULATION_SLOT_RETRY_SECONDS = 1.0
 DEFAULT_POLL_INTERVAL = 30.0
 SAFE_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 KEBAB_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-ARTIFACTS_SUBDIR = ".brain"
+ARTIFACTS_SUBDIR = "brain"
 
 
 class BrainAPIError(RuntimeError):
