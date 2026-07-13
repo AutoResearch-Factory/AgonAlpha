@@ -25,8 +25,8 @@ Complete exactly `ROUNDS` candidate pipelines. Keep at most `parallelism` subage
 
 For each candidate pipeline:
 
-1. Run `${CLAUDE_PLUGIN_ROOT}/scripts/mcts.py next`, then read `CANDIDATE_ID`, `WORKDIR`, and `ANCESTOR_REPORTS` from its output.
-2. Select reading materials for the proposer by randomly choosing 2 files from the `## 数据集详情` section of `${CLAUDE_PLUGIN_ROOT}/docs/data/INDEX.md`. Resolve the relative links to full paths and report them to the user. Run an actual randomization command; do not choose arbitrarily.
+1. Run `${CLAUDE_PLUGIN_ROOT}/scripts/mcts.py tree` to show the current search tree, then run `${CLAUDE_PLUGIN_ROOT}/scripts/mcts.py next` and read `CANDIDATE_ID`, `WORKDIR`, and `ANCESTOR_REPORTS` from its output.
+2. Select reading materials for the proposer by randomly choosing 2 files from the `## 数据集详情` section of `${CLAUDE_PLUGIN_ROOT}/docs/data/INDEX.md`. Resolve the relative links to full paths and report them to the user. Run an actual randomization command; do not choose arbitrarily. If `ANCESTOR_REPORTS` is not `none`, briefly skim the ancestor alpha.md to identify which datasets it relied on, and prefer datasets not already explored by this candidate's ancestor chain.
 3. Launch `alpha-proposer` in `WORKDIR` using the configured model and the exact task prompt below.
 4. After the proposer finishes, verify that `<WORKDIR>/alpha.md` exists. If it is missing, resume the proposer once.
 5. Launch `alpha-reviewer` in `WORKDIR` using the configured model and the exact task prompt below.
