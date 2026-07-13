@@ -90,7 +90,7 @@ python ${CLAUDE_PLUGIN_ROOT}/scripts/brain_client.py --env ${CLAUDE_PLUGIN_ROOT}
 
 ### Artifact 与恢复
 
-所有候选目录统一放在 `<run-dir>/brain/` 下，每个候选写入 `<run-dir>/brain/<name>/`。运行中间产物在 `brain/` 内部，批次汇总 `brain_summary.json` 作为最终结果写入 `<run-dir>/brain_summary.json`。
+所有候选目录统一放在 `<run-dir>/brain/` 下，每个候选写入 `<run-dir>/brain/<name>/`。运行中间产物在 `brain/` 内部，批次汇总 `brain_summary.json` 作为最终结果写入 `<run-dir>/brain_summary.json`。该文件是累积式的：每次运行结束时，客户端先从已有的 `result.json` 和 `error.json` 恢复历史结果，再合并本次新增的候选，写出包含全部候选的完整快照。
 
 每个候选目录包含以下文件：
 
