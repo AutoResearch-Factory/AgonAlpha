@@ -297,6 +297,52 @@ def test_submission_checks_retry_empty_200_response(tmp_path):
     assert clock.sleeps == [2.0]
 
 
+def test_submission_checks_waits_for_pending_to_resolve(tmp_path):
+    clock = Clock()
+    pending = {"is": {"checks": [
+        {"name": "LOW_SHARPE", "result": "PASS"},
+        {"name": "SELF_CORRELATION", "result": "PENDING"},
+    ]}}
+    resolved = {"is": {"checks": [
+        {"name": "LOW_SHARPE", "result": "PASS"},
+        {"name": "SELF_CORRELATION", "result": "PASS"},
+    ]}}
+    session = FakeSession(
+        requests_=(response(200, pending), response(200, resolved))
+    )
+    client = brain_client.BrainClient(
+        write_env(tmp_path / ".env"),
+        session=session,
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+        wall_time=clock.wall,
+    )
+    client.authenticated = True
+
+    assert client.submission_checks("alpha-1") == resolved
+    assert len(clock.sleeps) == 1
+
+
+def test_submission_checks_returns_immediately_when_fail_and_pending(tmp_path):
+    clock = Clock()
+    checks = {"is": {"checks": [
+        {"name": "LOW_SHARPE", "result": "FAIL"},
+        {"name": "SELF_CORRELATION", "result": "PENDING"},
+    ]}}
+    session = FakeSession(requests_=(response(200, checks),))
+    client = brain_client.BrainClient(
+        write_env(tmp_path / ".env"),
+        session=session,
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+        wall_time=clock.wall,
+    )
+    client.authenticated = True
+
+    assert client.submission_checks("alpha-1") == checks
+    assert clock.sleeps == []
+
+
 def test_submit_accepts_empty_201_and_verifies_eventual_alpha_state(tmp_path):
     clock = Clock()
     before = {

@@ -290,6 +290,25 @@ def _parse_datetime(value: Any) -> float | None:
     return parsed.timestamp()
 
 
+def _checks_resolved(checks: list[dict[str, Any]]) -> bool:
+    """True when every check has reached a terminal state.
+
+    BRAIN leaves dependent checks PENDING when a prerequisite fails, so a mix
+    of FAIL and PENDING is also considered resolved.
+    """
+    has_failure = False
+    has_pending = False
+    for check in checks:
+        result = check.get("result") if isinstance(check, dict) else None
+        if result == "PENDING":
+            has_pending = True
+        elif result == "FAIL":
+            has_failure = True
+    if not has_pending:
+        return True
+    return has_failure
+
+
 class BrainClient:
     """Cookie-backed API session with network retry and reauthentication."""
 
@@ -413,7 +432,7 @@ class BrainClient:
         max_wait: float = 300.0,
         poll_interval: float = 5.0,
     ) -> dict[str, Any]:
-        """Wait for a non-empty submission-check response."""
+        """Wait for submission checks to reach terminal states."""
         if not math.isfinite(max_wait) or max_wait <= 0:
             raise ValueError("max_wait must be positive and finite")
         started = self._monotonic()
@@ -429,8 +448,9 @@ class BrainClient:
                     raise BrainProtocolError(
                         f"Submission checks for {alpha_id} omitted is.checks"
                     )
-                return body
-            if body is not None and not (isinstance(body, str) and not body.strip()):
+                if _checks_resolved(checks):
+                    return body
+            elif body is not None and not (isinstance(body, str) and not body.strip()):
                 raise BrainProtocolError(
                     f"Submission checks for {alpha_id} are invalid"
                 )
@@ -848,6 +868,11 @@ def main() -> None:
     if args.command == "check":
         result = client.submission_checks(args.alpha_id, max_wait=args.max_wait)
         print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+        checks = result.get("is", {}).get("checks", [])
+        if any(
+            isinstance(c, dict) and c.get("result") != "PASS" for c in checks
+        ):
+            raise SystemExit(1)
         return
     if args.command == "submit":
         result = client.submit_alpha(args.alpha_id, max_wait=args.max_wait)
