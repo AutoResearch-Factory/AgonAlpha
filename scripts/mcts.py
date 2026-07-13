@@ -70,7 +70,7 @@ def _reset_simulation_registry() -> None:
 @contextmanager
 def _state_lock():
     ALPHAS_DIR.mkdir(parents=True, exist_ok=True)
-    with _lock_path().open("a+") as lock_file:
+    with _lock_path().open("a") as lock_file:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
             yield
@@ -79,7 +79,7 @@ def _state_lock():
 
 
 def _load_state() -> dict:
-    with _state_path().open() as f:
+    with _state_path().open(encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -89,7 +89,12 @@ def _save_state(state: dict) -> None:
     fd, tmp_name = tempfile.mkstemp(prefix=".state.", suffix=".tmp", dir=ALPHAS_DIR)
     tmp_path = Path(tmp_name)
     try:
-        with os.fdopen(fd, "w") as f:
+        try:
+            f = os.fdopen(fd, "w", encoding="utf-8")
+        except BaseException:
+            os.close(fd)
+            raise
+        with f:
             f.write(payload)
             f.flush()
             os.fsync(f.fileno())
@@ -128,11 +133,13 @@ def _initial_state(
 
 
 def _next_candidate_id(state: dict) -> str:
-    while True:
+    limit = state["next_candidate_num"] + len(state["nodes"]) + 1
+    while state["next_candidate_num"] < limit:
         state["next_candidate_num"] += 1
         cid = f"{state['next_candidate_num']:04d}"
         if cid not in state["nodes"]:
             return cid
+    raise RuntimeError("could not allocate a candidate id")
 
 
 def _score_history(state: dict) -> list[float]:
@@ -168,11 +175,21 @@ def _node_rewards(state: dict) -> dict[str, float]:
     return rewards
 
 
-def _subtree_reward_sum(state: dict, rewards: dict[str, float], node_id: str) -> float:
+def _subtree_reward_sum(
+    state: dict,
+    rewards: dict[str, float],
+    node_id: str,
+    _seen: set[str] | None = None,
+) -> float:
+    if _seen is None:
+        _seen = set()
+    if node_id in _seen:
+        raise ValueError(f"cycle in subtree: {node_id}")
+    _seen.add(node_id)
     total = rewards.get(node_id, 0.0)
     for child_id in state["nodes"][node_id]["children"]:
         if state["nodes"][child_id].get("status") == "done":
-            total += _subtree_reward_sum(state, rewards, child_id)
+            total += _subtree_reward_sum(state, rewards, child_id, _seen)
     return total
 
 
@@ -278,8 +295,12 @@ def _select_parent(state: dict) -> str:
 
 def _backprop_visit(state: dict, node_id: str) -> None:
     nodes = state["nodes"]
+    seen: set[str] = set()
     cur: str | None = node_id
     while cur is not None:
+        if cur in seen:
+            raise ValueError(f"cycle in parent path: {node_id}")
+        seen.add(cur)
         nodes[cur]["visits"] += 1
         cur = nodes[cur]["parent"]
 
@@ -287,8 +308,12 @@ def _backprop_visit(state: dict, node_id: str) -> None:
 def _ancestor_ids(state: dict, node_id: str) -> list[str]:
     nodes = state["nodes"]
     out: list[str] = []
+    seen: set[str] = {node_id}
     cur = nodes[node_id]["parent"]
     while cur is not None and cur != ROOT_ID:
+        if cur in seen:
+            raise ValueError(f"cycle in parent path: {node_id}")
+        seen.add(cur)
         out.append(cur)
         cur = nodes[cur]["parent"]
     return out
@@ -302,9 +327,10 @@ def _print_next(state: dict, cid: str) -> None:
     if not ancestors:
         print("none")
         return
-    labels = {0: "ancestor 1 (father)", 1: "ancestor 2 (grandfather)"}
+    qualifiers = {0: "father", 1: "grandfather"}
     for i, aid in enumerate(ancestors):
-        label = labels.get(i, f"ancestor {i + 1}")
+        qualifier = qualifiers.get(i)
+        label = f"ancestor {i + 1} ({qualifier})" if qualifier else f"ancestor {i + 1}"
         print(f"- {label}: {_alpha_path(aid)}")
 
 
@@ -359,13 +385,13 @@ def cmd_next(args: argparse.Namespace) -> None:
             cid, parent_id, parent["depth"] + 1, status="pending"
         )
         parent["children"].append(cid)
-        _candidate_dir(cid).mkdir(parents=True)
+        _candidate_dir(cid).mkdir(parents=True, exist_ok=True)
         _save_state(state)
         _print_next(state, cid)
 
 
 def cmd_update(args: argparse.Namespace) -> None:
-    score = float(args.score)
+    score = args.score
     if not math.isfinite(score):
         raise SystemExit("score must be finite")
 
