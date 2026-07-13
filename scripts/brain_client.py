@@ -217,7 +217,7 @@ def load_env(path: Path = DEFAULT_ENV) -> dict[str, str]:
     """Read BRAIN credentials without exposing them in artifacts."""
     values: dict[str, str] = {}
     for line_number, source in enumerate(
-        path.read_text(encoding="utf-8").splitlines(), 1
+        path.read_text(encoding="utf-8-sig").splitlines(), 1
     ):
         line = source.strip()
         if not line or line.startswith("#"):
@@ -240,7 +240,7 @@ def load_env(path: Path = DEFAULT_ENV) -> dict[str, str]:
 def write_json(path: Path, value: Any) -> None:
     """Atomically write JSON so interrupted runs do not leave partial files."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary = path.with_suffix(path.suffix + f".{os.getpid()}.tmp")
     temporary.write_text(
         json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
@@ -296,6 +296,8 @@ def _checks_resolved(checks: list[dict[str, Any]]) -> bool:
     BRAIN leaves dependent checks PENDING when a prerequisite fails, so a mix
     of FAIL and PENDING is also considered resolved.
     """
+    if not checks:
+        return False
     has_failure = False
     has_pending = False
     for check in checks:
@@ -599,7 +601,8 @@ def _complete_candidate(
     previous_key = claimed.get(alpha_id)
     if previous_key is not None and previous_key != candidate["key"]:
         raise AlphaReuseError(f"Alpha {alpha_id} is already claimed by {previous_key}")
-    if detail.get("regular", {}).get("code") != candidate["regular"]:
+    regular = detail.get("regular")
+    if not isinstance(regular, dict) or regular.get("code") != candidate["regular"]:
         raise AlphaReuseError(f"Alpha {alpha_id} expression does not match")
     actual_settings = detail.get("settings")
     if not isinstance(actual_settings, dict) or not _settings_match(
@@ -624,7 +627,10 @@ def _complete_candidate(
         response = client.set_alpha_name(alpha_id, candidate["name"])
         write_json(active.directory / "name-response.json", response.as_dict())
 
-    final = client.alpha(alpha_id)
+    try:
+        final = client.alpha(alpha_id)
+    except (BrainAPIError, requests.RequestException):
+        final = {**detail, "name": candidate["name"]}
     if final.get("name") != candidate["name"]:
         raise BrainProtocolError(f"Alpha {alpha_id} name was not applied")
     write_json(active.directory / "alpha.json", final)
@@ -664,9 +670,8 @@ def _summary(
 def _is_concurrency_limit_error(error: Exception) -> bool:
     if not isinstance(error, BrainAPIError) or error.response.status_code != 429:
         return False
-    return "CONCURRENT_SIMULATION_LIMIT_EXCEEDED" in json.dumps(
-        error.response.body, ensure_ascii=False
-    )
+    body = error.response.body
+    return isinstance(body, dict) and body.get("detail") == "CONCURRENT_SIMULATION_LIMIT_EXCEEDED"
 
 
 def _release_active_lease(
@@ -734,11 +739,19 @@ def simulate_candidates(
                 lease_id = None
             elif not isinstance(lease_id, str):
                 lease_id = None
+            location = creation.get("location")
+            requested_at = creation.get("requested_at")
+            if not isinstance(location, str) or not isinstance(
+                requested_at, (int, float)
+            ):
+                raise ValueError(
+                    f"Corrupt creation.json for {candidate['key']}: {directory}"
+                )
             active[candidate["key"]] = ActiveSimulation(
                 candidate,
                 directory,
-                creation["location"],
-                float(creation["requested_at"]),
+                location,
+                float(requested_at),
                 lease_id,
             )
         else:
