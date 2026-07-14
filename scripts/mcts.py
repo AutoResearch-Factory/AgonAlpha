@@ -53,24 +53,24 @@ def _simulation_registry_path() -> Path:
 def _reset_simulation_registry() -> None:
     path = _simulation_registry_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
-    with os.fdopen(descriptor, "r+", encoding="utf-8") as registry_file:
-        fcntl.flock(registry_file.fileno(), fcntl.LOCK_EX)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    with os.fdopen(fd, "r+", encoding="utf-8") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
         try:
-            registry_file.seek(0)
-            json.dump({"simulations": {}}, registry_file, indent=2, sort_keys=True)
-            registry_file.write("\n")
-            registry_file.truncate()
-            registry_file.flush()
-            os.fsync(registry_file.fileno())
+            f.seek(0)
+            json.dump({"simulations": {}}, f, indent=2, sort_keys=True)
+            f.write("\n")
+            f.truncate()
+            f.flush()
+            os.fsync(f.fileno())
         finally:
-            fcntl.flock(registry_file.fileno(), fcntl.LOCK_UN)
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 @contextmanager
 def _state_lock():
     ALPHAS_DIR.mkdir(parents=True, exist_ok=True)
-    with _lock_path().open("a+") as lock_file:
+    with _lock_path().open("a") as lock_file:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
             yield
@@ -79,7 +79,7 @@ def _state_lock():
 
 
 def _load_state() -> dict:
-    with _state_path().open() as f:
+    with _state_path().open(encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -89,7 +89,12 @@ def _save_state(state: dict) -> None:
     fd, tmp_name = tempfile.mkstemp(prefix=".state.", suffix=".tmp", dir=ALPHAS_DIR)
     tmp_path = Path(tmp_name)
     try:
-        with os.fdopen(fd, "w") as f:
+        try:
+            f = os.fdopen(fd, "w", encoding="utf-8")
+        except BaseException:
+            os.close(fd)
+            raise
+        with f:
             f.write(payload)
             f.flush()
             os.fsync(f.fileno())
@@ -128,23 +133,23 @@ def _initial_state(
 
 
 def _next_candidate_id(state: dict) -> str:
-    while True:
+    limit = state["next_candidate_num"] + len(state["nodes"]) + 1
+    while state["next_candidate_num"] < limit:
         state["next_candidate_num"] += 1
         cid = f"{state['next_candidate_num']:04d}"
         if cid not in state["nodes"]:
             return cid
+    raise RuntimeError("could not allocate a candidate id")
 
 
 def _score_history(state: dict) -> list[float]:
-    scores = []
-    for cid, node in state["nodes"].items():
-        if (
-            cid != ROOT_ID
-            and node.get("status") == "done"
-            and node.get("score") is not None
-        ):
-            scores.append(float(node["score"]))
-    return scores
+    return [
+        float(node["score"])
+        for cid, node in state["nodes"].items()
+        if cid != ROOT_ID
+        and node.get("status") == "done"
+        and node.get("score") is not None
+    ]
 
 
 def _percentile_reward(score: float, scores: list[float]) -> float:
@@ -152,27 +157,40 @@ def _percentile_reward(score: float, scores: list[float]) -> float:
         raise ValueError("scores must not be empty")
     if not math.isfinite(score) or any(not math.isfinite(s) for s in scores):
         raise ValueError("scores must be finite")
-    inf = sum(1 for s in scores if s < score)
-    sup = sum(1 for s in scores if s <= score)
-    rank = (inf + sup) / 2
+    below = sum(1 for s in scores if s < score)
+    at_or_below = sum(1 for s in scores if s <= score)
+    rank = (below + at_or_below) / 2
     return 10.0 * rank / len(scores)
 
 
 def _node_rewards(state: dict) -> dict[str, float]:
     scores = _score_history(state)
-    rewards: dict[str, float] = {}
-    for cid, node in state["nodes"].items():
-        if cid == ROOT_ID or node.get("status") != "done" or node.get("score") is None:
-            continue
-        rewards[cid] = _percentile_reward(float(node["score"]), scores)
-    return rewards
+    if not scores:
+        return {}
+    return {
+        cid: _percentile_reward(float(node["score"]), scores)
+        for cid, node in state["nodes"].items()
+        if cid != ROOT_ID
+        and node.get("status") == "done"
+        and node.get("score") is not None
+    }
 
 
-def _subtree_reward_sum(state: dict, rewards: dict[str, float], node_id: str) -> float:
+def _subtree_reward_sum(
+    state: dict,
+    rewards: dict[str, float],
+    node_id: str,
+    _seen: set[str] | None = None,
+) -> float:
+    if _seen is None:
+        _seen = set()
+    if node_id in _seen:
+        raise ValueError(f"cycle in subtree: {node_id}")
+    _seen.add(node_id)
     total = rewards.get(node_id, 0.0)
     for child_id in state["nodes"][node_id]["children"]:
         if state["nodes"][child_id].get("status") == "done":
-            total += _subtree_reward_sum(state, rewards, child_id)
+            total += _subtree_reward_sum(state, rewards, child_id, _seen)
     return total
 
 
@@ -278,8 +296,12 @@ def _select_parent(state: dict) -> str:
 
 def _backprop_visit(state: dict, node_id: str) -> None:
     nodes = state["nodes"]
+    seen: set[str] = set()
     cur: str | None = node_id
     while cur is not None:
+        if cur in seen:
+            raise ValueError(f"cycle in parent path: {node_id}")
+        seen.add(cur)
         nodes[cur]["visits"] += 1
         cur = nodes[cur]["parent"]
 
@@ -287,8 +309,12 @@ def _backprop_visit(state: dict, node_id: str) -> None:
 def _ancestor_ids(state: dict, node_id: str) -> list[str]:
     nodes = state["nodes"]
     out: list[str] = []
+    seen: set[str] = {node_id}
     cur = nodes[node_id]["parent"]
     while cur is not None and cur != ROOT_ID:
+        if cur in seen:
+            raise ValueError(f"cycle in parent path: {node_id}")
+        seen.add(cur)
         out.append(cur)
         cur = nodes[cur]["parent"]
     return out
@@ -302,10 +328,10 @@ def _print_next(state: dict, cid: str) -> None:
     if not ancestors:
         print("none")
         return
-    labels = {0: "ancestor 1 (father)", 1: "ancestor 2 (grandfather)"}
+    QUALIFIERS = ("father", "grandfather")
     for i, aid in enumerate(ancestors):
-        label = labels.get(i, f"ancestor {i + 1}")
-        print(f"- {label}: {_alpha_path(aid)}")
+        suffix = f" ({QUALIFIERS[i]})" if i < len(QUALIFIERS) else ""
+        print(f"- ancestor {i + 1}{suffix}: {_alpha_path(aid)}")
 
 
 def cmd_init(args: argparse.Namespace) -> None:
@@ -359,13 +385,13 @@ def cmd_next(args: argparse.Namespace) -> None:
             cid, parent_id, parent["depth"] + 1, status="pending"
         )
         parent["children"].append(cid)
-        _candidate_dir(cid).mkdir(parents=True)
+        _candidate_dir(cid).mkdir(parents=True, exist_ok=True)
         _save_state(state)
         _print_next(state, cid)
 
 
 def cmd_update(args: argparse.Namespace) -> None:
-    score = float(args.score)
+    score = args.score
     if not math.isfinite(score):
         raise SystemExit("score must be finite")
 
@@ -390,6 +416,69 @@ def cmd_update(args: argparse.Namespace) -> None:
         print(f"UPDATED: {cid} score={score:.4g}")
 
 
+def _best_metrics(cid: str) -> tuple[float | None, float | None]:
+    best_fitness: float | None = None
+    best_sharpe: float | None = None
+    directory = _candidate_dir(cid)
+    paths = [directory / "brain_summary.json"]
+    paths.extend(directory.glob("brain_summary.*.json"))
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            with path.open(encoding="utf-8") as f:
+                summary = json.load(f)
+        except (ValueError, OSError):
+            continue
+        for result in summary.get("results", []):
+            is_data = result.get("is") if isinstance(result, dict) else None
+            if not isinstance(is_data, dict):
+                continue
+            fitness = is_data.get("fitness")
+            if isinstance(fitness, (int, float)) and (
+                best_fitness is None or fitness > best_fitness
+            ):
+                best_fitness = fitness
+                sharpe = is_data.get("sharpe")
+                best_sharpe = sharpe if isinstance(sharpe, (int, float)) else None
+    return best_fitness, best_sharpe
+
+
+def cmd_tree(args: argparse.Namespace) -> None:
+    if not _state_path().exists():
+        raise SystemExit("no state file found")
+    with _state_lock():
+        state = _load_state()
+    nodes = state["nodes"]
+
+    def label(node_id: str) -> str:
+        node = nodes[node_id]
+        status = node.get("status", "?")
+        visits = node.get("visits", 0)
+        score = node.get("score")
+        tag = f"{status}, v={visits}"
+        if score is not None:
+            tag += f", s={score:.4g}"
+        parts = [node_id, f"[{tag}]"]
+        if node_id != ROOT_ID and status == "done":
+            fitness, sharpe = _best_metrics(node_id)
+            if fitness is not None:
+                parts.append(f"fitness={fitness:.3g}")
+            if sharpe is not None:
+                parts.append(f"sharpe={sharpe:.3g}")
+        return " ".join(parts)
+
+    def walk(node_id: str, prefix: str) -> None:
+        children = nodes[node_id].get("children", [])
+        for i, child_id in enumerate(children):
+            is_last = i == len(children) - 1
+            print(f"{prefix}{'└── ' if is_last else '├── '}{label(child_id)}")
+            walk(child_id, prefix + ("    " if is_last else "│   "))
+
+    print(label(ROOT_ID))
+    walk(ROOT_ID, "")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -410,6 +499,9 @@ def main() -> None:
     p_update.add_argument("--candidate-id", required=True)
     p_update.add_argument("--score", required=True, type=float)
     p_update.set_defaults(func=cmd_update)
+
+    p_tree = sub.add_parser("tree")
+    p_tree.set_defaults(func=cmd_tree)
 
     args = parser.parse_args()
     args.func(args)

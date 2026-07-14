@@ -305,6 +305,25 @@ def test_next_initializes_missing_state_with_defaults(alphas_dir, capsys):
     assert env_file.read_text() == "sentinel"
 
 
+def test_best_metrics_includes_rotated_brain_summaries(alphas_dir):
+    directory = alphas_dir / "0001"
+    directory.mkdir(parents=True)
+
+    def write_summary(name, fitness, sharpe):
+        (directory / name).write_text(
+            json.dumps(
+                {"results": [{"is": {"fitness": fitness, "sharpe": sharpe}}]}
+            ),
+            encoding="utf-8",
+        )
+
+    write_summary("brain_summary.json", 1.0, 1.1)
+    write_summary("brain_summary.1.json", 1.8, 1.5)
+    write_summary("brain_summary.2.json", 1.4, 1.3)
+
+    assert mcts._best_metrics("0001") == (1.8, 1.5)
+
+
 def test_consecutive_next_calls_create_distinct_pending_root_children(
     alphas_dir, capsys
 ):
@@ -356,6 +375,7 @@ def test_discard_pending_resets_simulation_registry_without_state(alphas_dir, ca
     mcts.cmd_discard_pending(Namespace())
 
     assert capsys.readouterr().out == ""
+    assert not mcts._state_path().exists()
     assert json.loads(mcts._simulation_registry_path().read_text()) == {
         "simulations": {}
     }
@@ -416,6 +436,7 @@ def test_discard_pending_keeps_tombstones_retries_cleanup_and_never_reuses_ids(
     )
     assert set(cleaned["nodes"]) == {"root", "0001", "0002", "0003", "0004", "0005"}
     assert cleaned["nodes"]["root"]["children"] == ["0001", "0003", "0004", "0005"]
+    assert cleaned["nodes"]["0001"]["children"] == ["0002"]
     assert cleaned["nodes"]["0003"]["status"] == "discarded"
     assert cleaned["nodes"]["0005"]["status"] == "discarded"
     assert cleaned["next_candidate_num"] == 5
@@ -504,6 +525,7 @@ def test_candidate_flow_persists_widening_ancestry_and_maximize_selection(
     assert state["nodes"]["0004"]["parent"] == "0003"
     assert state["nodes"]["root"]["visits"] == 3
     assert state["nodes"]["0001"]["visits"] == 2
+    assert state["nodes"]["0002"]["visits"] == 1
     assert state["nodes"]["0003"]["visits"] == 1
     assert state["nodes"]["0004"]["status"] == "pending"
     assert mcts._candidate_dir("0004").is_dir()
@@ -563,3 +585,94 @@ def test_print_next_labels_deep_ancestors_without_including_root(alphas_dir, cap
     assert f"ancestor 2 (grandfather): {mcts._alpha_path('0002')}" in output
     assert f"ancestor 3: {mcts._alpha_path('0001')}" in output
     assert "root/alpha.md" not in output
+
+
+# --- _save_state fd protection ---
+
+
+def test_save_state_closes_fd_on_fdopen_failure(alphas_dir, monkeypatch):
+    alphas_dir.mkdir()
+    mcts._save_state(mcts._initial_state())
+    before = mcts._state_path().read_bytes()
+
+    def failing_fdopen(fd, *args, **kwargs):
+        raise OSError("fdopen failed")
+
+    monkeypatch.setattr(mcts.os, "fdopen", failing_fdopen)
+
+    with pytest.raises(OSError, match="fdopen failed"):
+        mcts._save_state(mcts._initial_state(ucb_c=99.0))
+
+    assert mcts._state_path().read_bytes() == before
+    assert list(alphas_dir.glob(".state.*.tmp")) == []
+
+
+# --- cycle detection ---
+
+
+def test_subtree_reward_sum_raises_on_cycle():
+    nodes = {
+        "root": mcts._new_node("root", None, 0, "root"),
+        "a": mcts._new_node("a", "root", 1, "done"),
+        "b": mcts._new_node("b", "a", 2, "done"),
+    }
+    nodes["root"]["children"] = ["a"]
+    nodes["a"]["children"] = ["b"]
+    nodes["b"]["children"] = ["a"]
+    nodes["a"].update(score=1.0, visits=1)
+    nodes["b"].update(score=1.0, visits=1)
+
+    with pytest.raises(ValueError, match="cycle in subtree"):
+        mcts._subtree_reward_sum({"nodes": nodes}, {"a": 5.0, "b": 5.0}, "root")
+
+
+def test_backprop_visit_raises_on_cycle():
+    nodes = {
+        "root": mcts._new_node("root", None, 0, "root"),
+        "a": mcts._new_node("a", "root", 1, "done"),
+    }
+    nodes["a"]["parent"] = "a"
+
+    with pytest.raises(ValueError, match="cycle in parent path"):
+        mcts._backprop_visit({"nodes": nodes}, "a")
+
+
+def test_ancestor_ids_raises_on_cycle():
+    nodes = {
+        "root": mcts._new_node("root", None, 0, "root"),
+        "a": mcts._new_node("a", "root", 1, "done"),
+        "b": mcts._new_node("b", "a", 2, "done"),
+    }
+    nodes["a"]["parent"] = "b"
+
+    with pytest.raises(ValueError, match="cycle in parent path"):
+        mcts._ancestor_ids({"nodes": nodes}, "b")
+
+
+# --- _next_candidate_id bounded loop ---
+
+
+def test_next_candidate_id_raises_on_exhaustion():
+    state = mcts._initial_state()
+
+    class AlwaysContains(dict):
+        def __contains__(self, key):
+            return True
+
+    state["nodes"] = AlwaysContains(state["nodes"])
+
+    with pytest.raises(RuntimeError, match="could not allocate a candidate id"):
+        mcts._next_candidate_id(state)
+
+
+# --- non-ASCII round-trip ---
+
+
+def test_save_and_load_state_round_trips_non_ascii(alphas_dir):
+    alphas_dir.mkdir()
+    state = mcts._initial_state()
+    state["nodes"]["0001"] = mcts._new_node("0001", "root", 1, "done")
+    state["nodes"]["0001"]["score"] = "日本語テスト"
+    mcts._save_state(state)
+    loaded = mcts._load_state()
+    assert loaded["nodes"]["0001"]["score"] == "日本語テスト"
