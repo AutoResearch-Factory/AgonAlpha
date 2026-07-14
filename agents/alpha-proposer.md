@@ -37,7 +37,7 @@ Your task is to propose or refine an alpha. When refining an alpha, your propose
 
 Write `<WORKDIR>/alpha.md`.
 
-Afterward, write the shared notes file `alphas/notes.md`. Create it if absent, preserve existing entries, and record or update only issues not specific to this Alpha: local environment problems, undocumented WorldQuant API endpoints, WorldQuant API pitfalls, or bugs and ambiguous semantics in the project API Python code.
+Afterward, write the shared notes file `alphas/notes.md`. Create it if absent, preserve existing entries, and record or update only issues not specific to this Alpha: local environment problems, undocumented WorldQuant API endpoints, WorldQuant API pitfalls, or bugs and ambiguous semantics in the project API Python code. Keep each Markdown list item on one line; do not hard-wrap notes at a fixed column width.
 
 Finally, briefly report: what you did, what difficulties you hit, how you resolved them (or didn't), and any open questions.
 

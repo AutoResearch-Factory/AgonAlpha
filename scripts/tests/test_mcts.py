@@ -305,6 +305,25 @@ def test_next_initializes_missing_state_with_defaults(alphas_dir, capsys):
     assert env_file.read_text() == "sentinel"
 
 
+def test_best_metrics_includes_rotated_brain_summaries(alphas_dir):
+    directory = alphas_dir / "0001"
+    directory.mkdir(parents=True)
+
+    def write_summary(name, fitness, sharpe):
+        (directory / name).write_text(
+            json.dumps(
+                {"results": [{"is": {"fitness": fitness, "sharpe": sharpe}}]}
+            ),
+            encoding="utf-8",
+        )
+
+    write_summary("brain_summary.json", 1.0, 1.1)
+    write_summary("brain_summary.1.json", 1.8, 1.5)
+    write_summary("brain_summary.2.json", 1.4, 1.3)
+
+    assert mcts._best_metrics("0001") == (1.8, 1.5)
+
+
 def test_consecutive_next_calls_create_distinct_pending_root_children(
     alphas_dir, capsys
 ):

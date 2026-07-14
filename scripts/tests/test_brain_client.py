@@ -338,6 +338,14 @@ def test_submission_checks_returns_immediately_when_fail_and_pending(tmp_path):
 
 def test_submit_accepts_empty_201_and_verifies_eventual_alpha_state(tmp_path):
     clock = Clock()
+    checks = {
+        "is": {
+            "checks": [
+                {"name": "LOW_SHARPE", "result": "PASS"},
+                {"name": "SELF_CORRELATION", "result": "PASS"},
+            ]
+        }
+    }
     before = {
         "id": "alpha-1",
         "name": "candidate",
@@ -349,6 +357,7 @@ def test_submit_accepts_empty_201_and_verifies_eventual_alpha_state(tmp_path):
     client = authenticated_client(
         tmp_path, clock,
         requests_=(
+            response(200, checks),
             response(200, before),
             response(201, None, {"Retry-After": "2"}),
             response(200, pending),
@@ -358,6 +367,7 @@ def test_submit_accepts_empty_201_and_verifies_eventual_alpha_state(tmp_path):
 
     result = client.submit_alpha("alpha-1")
 
+    assert result["pre_submission_check"] == checks
     assert result["submission"]["status_code"] == 201
     assert result["submission"]["body"] == ""
     assert result["alpha"] == active
@@ -475,8 +485,15 @@ def test_simulate_candidates_keeps_multiple_jobs_inflight_and_names_results(tmp_
         "name-c",
     ]
     for key in "abc":
-        result = json.loads((tmp_path / "run" / "brain" / key / "result.json").read_text())
+        directory = tmp_path / "run" / "brain" / key
+        result = json.loads((directory / "result.json").read_text())
         assert result["alpha_id"] == f"alpha-{key}"
+        assert result["simulation_location"].endswith(f"/{key}")
+        assert {path.name for path in directory.iterdir()} == {
+            "alpha.json",
+            "candidate.json",
+            "result.json",
+        }
 
 
 def test_concurrency_limit_error_requeues_instead_of_becoming_terminal(tmp_path):
@@ -517,6 +534,37 @@ def test_simulate_candidates_writes_brain_summary_on_timeout(tmp_path):
     summary = json.loads(summary_path.read_text())
     assert summary["candidate_count"] == 1
     assert summary["completed_count"] == 0
+    directory = tmp_path / "run" / "brain" / "a"
+    assert {path.name for path in directory.iterdir()} == {
+        "candidate.json",
+        "creation.json",
+    }
+    assert set(json.loads((directory / "creation.json").read_text())) == {
+        "global_count_active",
+        "lease_id",
+        "location",
+        "requested_at",
+    }
+
+
+def test_brain_summary_rotates_previous_batches(tmp_path):
+    clock = Clock()
+    client = FakeBatchClient(clock)
+    run_dir = tmp_path / "run"
+    registry = simulation_registry(tmp_path, clock)
+
+    for key in "abc":
+        brain_client.simulate_candidates(
+            client, [candidate(key)], run_dir, registry=registry
+        )
+
+    def result_names(path):
+        return [result["name"] for result in json.loads(path.read_text())["results"]]
+
+    assert result_names(run_dir / "brain_summary.json") == ["name-c"]
+    assert result_names(run_dir / "brain_summary.1.json") == ["name-b"]
+    assert result_names(run_dir / "brain_summary.2.json") == ["name-a"]
+    assert not (run_dir / "brain_summary.3.json").exists()
 
 
 @pytest.mark.parametrize(
@@ -548,9 +596,6 @@ def test_simulate_candidates_resumes_saved_location_without_resubmitting(tmp_pat
     active_dir = run_dir / "brain" / "a"
     active_dir.mkdir(parents=True)
     brain_client.write_json(active_dir / "candidate.json", candidates[0])
-    brain_client.write_json(
-        active_dir / "payload.json", brain_client._payload(candidates[0])
-    )
     location = "https://brain.test/simulations/resumed-a"
     registry = simulation_registry(tmp_path, clock)
     lease_id = registry.try_acquire(
@@ -734,6 +779,56 @@ def test_check_command_exits_zero_on_all_pass(tmp_path, monkeypatch):
     brain_client.main()
 
 
+def test_submit_command_preserves_checks_rotates_output_and_keeps_stdout_json(
+    tmp_path, monkeypatch, capsys
+):
+    checks = {
+        "is": {"checks": [{"name": "SELF_CORRELATION", "result": "PASS"}]}
+    }
+    before = {
+        "id": "alpha-1",
+        "name": "candidate",
+        "status": "UNSUBMITTED",
+        "stage": "IS",
+    }
+    active = {
+        "id": "alpha-1",
+        "name": "candidate",
+        "status": "ACTIVE",
+        "stage": "OS",
+        "is": {"selfCorrelation": 0.4, "checks": []},
+    }
+    fake = FakeSession(
+        posts=(response(201),),
+        requests_=(
+            response(200, checks),
+            response(200, before),
+            response(201),
+            response(200, active),
+        ),
+    )
+    old = {"alpha": {"id": "old-alpha"}}
+    brain_client.write_json(tmp_path / "brain_submitted.json", old)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", [
+        "brain_client", "--env", str(write_env(tmp_path / ".env")),
+        "submit", "alpha-1", "--run-dir", ".",
+    ])
+    monkeypatch.setattr(requests, "Session", lambda: fake)
+
+    brain_client.main()
+
+    captured = capsys.readouterr()
+    printed = json.loads(captured.out)
+    saved = json.loads((tmp_path / "brain_submitted.json").read_text())
+    archived = json.loads((tmp_path / "brain_submitted.1.json").read_text())
+    assert printed == saved
+    assert saved["pre_submission_check"] == checks
+    assert saved["alpha"]["is"]["checks"] == []
+    assert archived == old
+    assert captured.err.startswith("Saved to ")
+
+
 # --- request reauthentication ---
 
 
@@ -827,9 +922,6 @@ def test_simulate_candidates_rejects_corrupt_creation_json(tmp_path):
     directory = run_dir / "brain" / "a"
     directory.mkdir(parents=True)
     brain_client.write_json(directory / "candidate.json", candidates[0])
-    brain_client.write_json(
-        directory / "payload.json", brain_client._payload(candidates[0])
-    )
     brain_client.write_json(
         directory / "creation.json",
         {

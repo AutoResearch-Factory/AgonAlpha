@@ -417,27 +417,30 @@ def cmd_update(args: argparse.Namespace) -> None:
 
 
 def _best_metrics(cid: str) -> tuple[float | None, float | None]:
-    path = _candidate_dir(cid) / "brain_summary.json"
-    if not path.exists():
-        return None, None
-    try:
-        with path.open(encoding="utf-8") as f:
-            summary = json.load(f)
-    except (ValueError, OSError):
-        return None, None
     best_fitness: float | None = None
     best_sharpe: float | None = None
-    for result in summary.get("results", []):
-        is_data = result.get("is") if isinstance(result, dict) else None
-        if not isinstance(is_data, dict):
+    directory = _candidate_dir(cid)
+    paths = [directory / "brain_summary.json"]
+    paths.extend(directory.glob("brain_summary.*.json"))
+    for path in paths:
+        if not path.exists():
             continue
-        fitness = is_data.get("fitness")
-        if isinstance(fitness, (int, float)) and (
-            best_fitness is None or fitness > best_fitness
-        ):
-            best_fitness = fitness
-            sharpe = is_data.get("sharpe")
-            best_sharpe = sharpe if isinstance(sharpe, (int, float)) else None
+        try:
+            with path.open(encoding="utf-8") as f:
+                summary = json.load(f)
+        except (ValueError, OSError):
+            continue
+        for result in summary.get("results", []):
+            is_data = result.get("is") if isinstance(result, dict) else None
+            if not isinstance(is_data, dict):
+                continue
+            fitness = is_data.get("fitness")
+            if isinstance(fitness, (int, float)) and (
+                best_fitness is None or fitness > best_fitness
+            ):
+                best_fitness = fitness
+                sharpe = is_data.get("sharpe")
+                best_sharpe = sharpe if isinstance(sharpe, (int, float)) else None
     return best_fitness, best_sharpe
 
 
