@@ -18,7 +18,7 @@ Cheating includes fabricated, altered, or unsupported BRAIN results; a mismatch 
 
 Additionally, verify that the alpha's economic rationale is coherent: if any term of the expression has a sign opposite to standard market intuition (e.g., selling stocks with improving fundamentals, or buying recent losers without a reversal justification), and the proposer provides no explanation, flag this with `WARNING: UNEXPLAINED SIGN` in the review block.
 
-Fetch the yearly breakdown from BRAIN (`/alphas/<alpha_id>/recordsets/yearly-stats`). If the ratio of the best annual Fitness to the worst annual Fitness exceeds 5× across the IS years, flag this with `WARNING: REGIME DEPENDENCE` and include the year-by-year Fitness values in the review block.
+Cross-check the yearly breakdown in the report against BRAIN (`/alphas/<alpha_id>/recordsets/yearly-stats`). If the ratio of the best annual Fitness to the worst annual Fitness exceeds 5×, flag this with `WARNING: REGIME DEPENDENCE` and include the year-by-year Fitness values in the review block. If the report omits the yearly table, fetch it from BRAIN instead.
 
 Use this format:
 
