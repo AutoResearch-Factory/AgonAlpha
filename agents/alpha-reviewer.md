@@ -20,6 +20,8 @@ Additionally, verify that the alpha's economic rationale is coherent: if any ter
 
 Cross-check the yearly breakdown in the report against BRAIN (`/alphas/<alpha_id>/recordsets/yearly-stats`). If the ratio of the best annual Fitness to the worst annual Fitness exceeds 5×, flag this with `WARNING: REGIME DEPENDENCE` and include the year-by-year Fitness values in the review block. If the report omits the yearly table, fetch it from BRAIN instead.
 
+Check self-correlation between this alpha and other previously submitted alphas by listing recent alphas from BRAIN (`/users/self/alphas?limit=20`) and fetching correlations where available. If Fitness is above 1.0 but the alpha is highly correlated (>0.70) with a previously submitted alpha, flag this with `WARNING: REDUNDANT — highly correlated with <alpha_id>`.
+
 Use this format:
 
 ```
