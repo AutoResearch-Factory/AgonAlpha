@@ -7,7 +7,8 @@ either ``regular`` or ``expression``. ``name`` is also its artifact-directory
 name and must be ``{CANDIDATE_ID}-{LOOP_ID}-{SLUG}``.
 
 The ``check`` command waits for non-empty submission checks. The ``submit``
-command accepts the empty HTTP 201 response and verifies the final Alpha state.
+command preserves those checks, accepts the empty HTTP 201 response, and
+verifies the final Alpha state.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ import json
 import math
 import os
 import re
+import sys
 import time
 import uuid
 from collections import Counter
@@ -491,9 +493,14 @@ class BrainClient:
         max_wait: float = 300.0,
         poll_interval: float = 5.0,
     ) -> dict[str, Any]:
-        """Submit an Alpha and verify the eventual ACTIVE/OS state."""
+        """Preserve submission checks, submit, and verify the ACTIVE/OS state."""
         if not math.isfinite(max_wait) or max_wait <= 0:
             raise ValueError("max_wait must be positive and finite")
+        pre_submission_check = self.submission_checks(
+            alpha_id,
+            max_wait=max_wait,
+            poll_interval=poll_interval,
+        )
         before = self.alpha(alpha_id)
         expected_name = before.get("name")
         submission = self.request("POST", f"alphas/{alpha_id}/submit", expected=(201,))
@@ -509,7 +516,11 @@ class BrainClient:
                     f"Alpha {alpha_id} name changed during submission"
                 )
             if detail.get("status") == "ACTIVE" and detail.get("stage") == "OS":
-                return {"submission": submission.as_dict(), "alpha": detail}
+                return {
+                    "pre_submission_check": pre_submission_check,
+                    "submission": submission.as_dict(),
+                    "alpha": detail,
+                }
             elapsed = self._monotonic() - started
             if elapsed >= max_wait:
                 raise BatchTimeout(f"Submission for {alpha_id} timed out")
@@ -915,10 +926,10 @@ def main() -> None:
         except ValueError as error:
             raise SystemExit(str(error)) from error
         result = client.submit_alpha(args.alpha_id, max_wait=args.max_wait)
-        print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
         output = run_dir / "brain_submitted.json"
-        write_json(output, result)
-        print(f"Saved to {output}")
+        write_rotated_json(output, result)
+        print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False))
+        print(f"Saved to {output}", file=sys.stderr)
         return
 
     try:

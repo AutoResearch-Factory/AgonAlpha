@@ -104,7 +104,7 @@ cd <run-dir>
 python ${CLAUDE_PLUGIN_ROOT}/scripts/brain_client.py submit <alpha_id> --run-dir .
 ```
 
-`check` 会等待检查完成并打印结果；检查未通过或等待超时时，命令以非零状态退出。`submit` 会提交 Alpha 并等待确认，成功后将结果保存到 `<run-dir>/brain_submitted.json`。
+`check` 会等待检查完成并打印结果；检查未通过或等待超时时，命令以非零状态退出。`submit` 会在提交前重新获取完整检查结果，提交 Alpha 并等待确认。成功后，检查结果和提交后的 Alpha 会一起保存到 `<run-dir>/brain_submitted.json`；已有文件按照 `.1.json`、`.2.json` 的顺序轮转保留。
 
 ## 认证
 

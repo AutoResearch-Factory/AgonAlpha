@@ -338,6 +338,14 @@ def test_submission_checks_returns_immediately_when_fail_and_pending(tmp_path):
 
 def test_submit_accepts_empty_201_and_verifies_eventual_alpha_state(tmp_path):
     clock = Clock()
+    checks = {
+        "is": {
+            "checks": [
+                {"name": "LOW_SHARPE", "result": "PASS"},
+                {"name": "SELF_CORRELATION", "result": "PASS"},
+            ]
+        }
+    }
     before = {
         "id": "alpha-1",
         "name": "candidate",
@@ -349,6 +357,7 @@ def test_submit_accepts_empty_201_and_verifies_eventual_alpha_state(tmp_path):
     client = authenticated_client(
         tmp_path, clock,
         requests_=(
+            response(200, checks),
             response(200, before),
             response(201, None, {"Retry-After": "2"}),
             response(200, pending),
@@ -358,6 +367,7 @@ def test_submit_accepts_empty_201_and_verifies_eventual_alpha_state(tmp_path):
 
     result = client.submit_alpha("alpha-1")
 
+    assert result["pre_submission_check"] == checks
     assert result["submission"]["status_code"] == 201
     assert result["submission"]["body"] == ""
     assert result["alpha"] == active
@@ -767,6 +777,56 @@ def test_check_command_exits_zero_on_all_pass(tmp_path, monkeypatch):
     monkeypatch.setattr(requests, "Session", lambda: fake)
 
     brain_client.main()
+
+
+def test_submit_command_preserves_checks_rotates_output_and_keeps_stdout_json(
+    tmp_path, monkeypatch, capsys
+):
+    checks = {
+        "is": {"checks": [{"name": "SELF_CORRELATION", "result": "PASS"}]}
+    }
+    before = {
+        "id": "alpha-1",
+        "name": "candidate",
+        "status": "UNSUBMITTED",
+        "stage": "IS",
+    }
+    active = {
+        "id": "alpha-1",
+        "name": "candidate",
+        "status": "ACTIVE",
+        "stage": "OS",
+        "is": {"selfCorrelation": 0.4, "checks": []},
+    }
+    fake = FakeSession(
+        posts=(response(201),),
+        requests_=(
+            response(200, checks),
+            response(200, before),
+            response(201),
+            response(200, active),
+        ),
+    )
+    old = {"alpha": {"id": "old-alpha"}}
+    brain_client.write_json(tmp_path / "brain_submitted.json", old)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", [
+        "brain_client", "--env", str(write_env(tmp_path / ".env")),
+        "submit", "alpha-1", "--run-dir", ".",
+    ])
+    monkeypatch.setattr(requests, "Session", lambda: fake)
+
+    brain_client.main()
+
+    captured = capsys.readouterr()
+    printed = json.loads(captured.out)
+    saved = json.loads((tmp_path / "brain_submitted.json").read_text())
+    archived = json.loads((tmp_path / "brain_submitted.1.json").read_text())
+    assert printed == saved
+    assert saved["pre_submission_check"] == checks
+    assert saved["alpha"]["is"]["checks"] == []
+    assert archived == old
+    assert captured.err.startswith("Saved to ")
 
 
 # --- request reauthentication ---
