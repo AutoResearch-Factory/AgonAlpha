@@ -22,7 +22,8 @@
 ## Examples
 
 - [⭐ Alpha Examples for Beginners](19-alpha-examples.md)
-- [⭐ Alpha Examples for Bronze Users 🥉](sample-alpha-concepts.md)
+- [⭐ Alpha Examples for Bronze Users 🥉](alpha-examples-bronze-users.md)
+- [⭐ Alpha Examples for Silver Users🥈](alpha-examples-silver-users.md)
 
 ## Interpret Results
 

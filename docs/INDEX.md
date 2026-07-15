@@ -46,11 +46,6 @@
 
 ## Tutorials
 
-- [教程索引](tutorials/INDEX.md) - 18 篇教程及其原始数据链接
-- [教程目录原始数据](tutorials/catalog.json)
-- [教程图片](tutorials/images/) - 64 张，均由正文引用
-- [原始教程数据](tutorials/raw/) - 17 份
-
-## 清单
-
-- [下载清单](manifest.json)
+- [教程索引](tutorials/INDEX.md) - 19 篇教程及其原始数据链接
+- [⭐ Alpha Examples for Bronze Users 🥉](tutorials/alpha-examples-bronze-users.md)
+- [⭐ Alpha Examples for Silver Users🥈](tutorials/alpha-examples-silver-users.md)
