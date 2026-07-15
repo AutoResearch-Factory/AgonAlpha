@@ -13,15 +13,12 @@
 - [API 使用说明](../references/worldquant-api-spec.md)
 - [回测接口 Schema](api/simulations-options.json)
 - [Alpha 接口 Schema](api/alpha-options.json)
-- [Alpha 检查接口 Schema](api/alpha-check-options.json)
-- [Alpha 提交接口 Schema](api/alpha-submit-options.json)
 - [官方 API 搜索结果](api/official-api-search.json)
 - [官方 API 页面访问状态](api/official-page-status.json)
 
 ## 数据
 
 - [数据索引](data/INDEX.md) - 14 个数据集、4367 个字段及详情
-- [数据集目录](data/datasets.md) - 14 个数据集
 - [数据集原始数据](data/datasets.json)
 - [数据分类](data/categories.json)
 - [数据字段目录](data/fields.md) - 4367 个字段
