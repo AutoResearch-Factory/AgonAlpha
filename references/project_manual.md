@@ -26,6 +26,10 @@ All BRAIN simulations must be created through `${CLAUDE_PLUGIN_ROOT}/scripts/bra
 
 State the proposed alpha in one sentence, using LaTeX syntax for the formulae.
 
+### Hypothesis
+
+State the testable market belief behind the alpha. Describe the observed condition and the expected direction of future returns. Briefly explain the economic or behavioral intuition connecting them. Focus on what should happen and why.
+
 ## Final expression
 
 Report the exact submitted Fast Expression and the BRAIN alpha name/ID.
