@@ -35,7 +35,7 @@ Your task is to propose or refine an alpha. When refining an alpha, your propose
 
 ## Output
 
-Write `<WORKDIR>/alpha.md`. The `## Performance` section must include a table of year-by-year IS Fitness fetched from BRAIN `/alphas/<alpha_id>/recordsets/yearly-stats`.
+Write `<WORKDIR>/alpha.md` following the full format in `project_manual.md`.
 
 Afterward, write the shared notes file `alphas/notes.md`. Create it if absent, preserve existing entries, and record or update only issues not specific to this Alpha: local environment problems, undocumented WorldQuant API endpoints, WorldQuant API pitfalls, or bugs and ambiguous semantics in the project API Python code. Keep each Markdown list item on one line; do not hard-wrap notes at a fixed column width.
 
