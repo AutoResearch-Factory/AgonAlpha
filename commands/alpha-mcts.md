@@ -39,8 +39,18 @@ Steps within one candidate pipeline are sequential. Different candidate pipeline
 
 Send exactly these task prompts. Do not add advice, analysis, summaries, or extra instructions.
 
-- Alpha Proposer: `ANCESTOR_REPORTS: {ANCESTOR_REPORTS}, WORKDIR: {WORKDIR}, READING_MATERIALS: {FULL_PATHS_OF_THE_2_SELECTED_FILES}, CLAUDE_PLUGIN_ROOT: ${CLAUDE_PLUGIN_ROOT}`
-- Alpha Reviewer: `WORKDIR: {WORKDIR}, CLAUDE_PLUGIN_ROOT: ${CLAUDE_PLUGIN_ROOT}`
+- Alpha Proposer:
+    ```
+    ANCESTOR_REPORTS: {ANCESTOR_REPORTS},
+    WORKDIR: {WORKDIR},
+    READING_MATERIALS: {FULL_PATHS_OF_THE_2_SELECTED_FILES},
+    CLAUDE_PLUGIN_ROOT: ${CLAUDE_PLUGIN_ROOT}
+    ```
+- Alpha Reviewer:
+    ```
+    WORKDIR: {WORKDIR},
+    CLAUDE_PLUGIN_ROOT: ${CLAUDE_PLUGIN_ROOT}
+    ```
 
 ## Cron and idle prevention
 

@@ -277,6 +277,7 @@ def test_init_preserves_existing_alpha_files_and_refuses_to_reset_state(
     assert state["config"] == {"ucb_c": 7.5, "pw_k": 1.25, "pw_alpha": 0.6}
     assert "run_dir" not in state
     assert "score_direction" not in state["config"]
+    assert "next_candidate_num" not in state
 
     with pytest.raises(SystemExit, match="state already exists"):
         mcts.cmd_init(args)
@@ -348,7 +349,6 @@ def test_state_lock_prevents_overlapping_next_calls_from_losing_updates(
     capsys.readouterr()
 
     state = mcts._load_state()
-    assert state["next_candidate_num"] == 2
     assert state["nodes"]["root"]["children"] == ["0001", "0002"]
     assert set(state["nodes"]) == {"root", "0001", "0002"}
 
@@ -399,7 +399,6 @@ def test_discard_pending_keeps_tombstones_retries_cleanup_and_never_reuses_ids(
     nodes["0004"].update(visits=1, score=3.0)
     state = {
         "method": "alpha-mcts",
-        "next_candidate_num": 5,
         "config": {
             "ucb_c": mcts.DEFAULT_UCB_C,
             "pw_k": mcts.DEFAULT_PW_K,
@@ -439,7 +438,6 @@ def test_discard_pending_keeps_tombstones_retries_cleanup_and_never_reuses_ids(
     assert cleaned["nodes"]["0001"]["children"] == ["0002"]
     assert cleaned["nodes"]["0003"]["status"] == "discarded"
     assert cleaned["nodes"]["0005"]["status"] == "discarded"
-    assert cleaned["next_candidate_num"] == 5
     assert all(count == 0 for count in mcts._pending_counts(cleaned).values())
     assert json.loads(mcts._simulation_registry_path().read_text()) == {
         "simulations": {}
@@ -470,7 +468,7 @@ def test_discard_pending_rejects_non_pending_descendants_without_modifying_state
     }
     nodes["root"]["children"] = ["0001"]
     nodes["0001"]["children"] = ["0002"]
-    state = {"next_candidate_num": 2, "nodes": nodes}
+    state = {"nodes": nodes}
     mcts._save_state(state)
     before = mcts._state_path().read_bytes()
 
@@ -649,20 +647,35 @@ def test_ancestor_ids_raises_on_cycle():
         mcts._ancestor_ids({"nodes": nodes}, "b")
 
 
-# --- _next_candidate_id bounded loop ---
+# --- _next_candidate_id derives ids from node state ---
 
 
-def test_next_candidate_id_raises_on_exhaustion():
+def test_next_candidate_id_does_not_require_a_counter_field():
+    state = {"nodes": {"root": mcts._new_node("root", None, 0, "root")}}
+    assert mcts._next_candidate_id(state) == "0001"
+
+
+def test_next_candidate_id_is_one_past_the_maximum_and_never_backfills_a_gap():
+    nodes = {
+        "root": mcts._new_node("root", None, 0, "root"),
+        "0001": mcts._new_node("0001", "root", 1, "done"),
+        "0003": mcts._new_node("0003", "root", 1, "discarded"),
+    }
+    assert mcts._next_candidate_id({"nodes": nodes}) == "0004"
+
+
+# --- _load_state migrates away the retired counter field ---
+
+
+def test_load_state_drops_a_legacy_next_candidate_num_field(alphas_dir):
+    alphas_dir.mkdir()
     state = mcts._initial_state()
+    state["next_candidate_num"] = 5
+    mcts._save_state(state)
 
-    class AlwaysContains(dict):
-        def __contains__(self, key):
-            return True
+    loaded = mcts._load_state()
 
-    state["nodes"] = AlwaysContains(state["nodes"])
-
-    with pytest.raises(RuntimeError, match="could not allocate a candidate id"):
-        mcts._next_candidate_id(state)
+    assert "next_candidate_num" not in loaded
 
 
 # --- non-ASCII round-trip ---

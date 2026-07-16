@@ -36,7 +36,6 @@ codex exec resume --dangerously-bypass-approvals-and-sandbox \
 
 ```
 claude --dangerously-skip-permissions \
-  --plugin-dir "${CLAUDE_PLUGIN_ROOT}" \
   --output-format json \
   --effort max \
   --append-system-prompt-file "$AGENT_PROMPT" \
@@ -47,7 +46,6 @@ Resume 已有 session:
 
 ```
 claude --dangerously-skip-permissions \
-  --plugin-dir "${CLAUDE_PLUGIN_ROOT}" \
   --output-format json \
   --effort max \
   --resume "<session_id>" \

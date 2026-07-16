@@ -13,15 +13,12 @@
 - [API 使用说明](../references/worldquant-api-spec.md)
 - [回测接口 Schema](api/simulations-options.json)
 - [Alpha 接口 Schema](api/alpha-options.json)
-- [Alpha 检查接口 Schema](api/alpha-check-options.json)
-- [Alpha 提交接口 Schema](api/alpha-submit-options.json)
 - [官方 API 搜索结果](api/official-api-search.json)
 - [官方 API 页面访问状态](api/official-page-status.json)
 
 ## 数据
 
 - [数据索引](data/INDEX.md) - 14 个数据集、4367 个字段及详情
-- [数据集目录](data/datasets.md) - 14 个数据集
 - [数据集原始数据](data/datasets.json)
 - [数据分类](data/categories.json)
 - [数据字段目录](data/fields.md) - 4367 个字段
@@ -46,11 +43,6 @@
 
 ## Tutorials
 
-- [教程索引](tutorials/INDEX.md) - 18 篇教程及其原始数据链接
-- [教程目录原始数据](tutorials/catalog.json)
-- [教程图片](tutorials/images/) - 64 张，均由正文引用
-- [原始教程数据](tutorials/raw/) - 17 份
-
-## 清单
-
-- [下载清单](manifest.json)
+- [教程索引](tutorials/INDEX.md) - 19 篇教程及其原始数据链接
+- [⭐ Alpha Examples for Bronze Users 🥉](tutorials/alpha-examples-bronze-users.md)
+- [⭐ Alpha Examples for Silver Users🥈](tutorials/alpha-examples-silver-users.md)

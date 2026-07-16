@@ -21,12 +21,12 @@ Your task is to propose or refine an alpha. When refining an alpha, your propose
 
 ## Workflow
 
-1. If `ANCESTOR_REPORTS` is not `none`, think about where the ancestors succeeded, where they failed, and how to improve them. Propose 16 alpha candidates that may improve upon them. Otherwise, start fresh and brainstorm 16 new alpha candidates. At least ceil(n/4) of the candidates must use data fields from the datasets described in READING_MATERIALS.
+1. If `ANCESTOR_REPORTS` is not `none`, think about where the ancestors succeeded, where they failed, and how to improve them. Propose 16 alpha candidates that may improve upon them. Otherwise, start fresh and brainstorm 16 new alpha candidates.
 2. Repeat the following loop. Use `LOOP_ID=1` for the first pass and increment it for every later pass; never reset it during this task.
   a. Devise and run local tests for each alpha.
   b. Simulate each alpha on WorldQuant BRAIN and save the simulation settings and results in `WORKDIR`.
   c. Name every resulting BRAIN alpha `{CANDIDATE_ID}-{LOOP_ID}-{SLUG}`, where `CANDIDATE_ID` is the final component of `WORKDIR` and `SLUG` is a unique, concise, lowercase kebab-case description.
-  d. Rank the alphas by `abs(Fitness)` and eliminate the bottom half. If the number is odd, eliminate `floor(n/2)` alphas. If after elimination fewer than max(1, ceil(n/8)) survivors use data fields from READING_MATERIALS datasets, promote the highest-ranked qualifying candidate and demote the lowest-ranked non-qualifying survivor.
+  d. Rank the alphas by `abs(Fitness)` and eliminate the bottom half. If the number is odd, eliminate `floor(n/2)` alphas.
   e. Find ways to improve the surviving alphas; if a survivor has negative Fitness, first negate its outermost expression without running an extra Simulation.
   f. Continue until only one alpha remains; then run one final pass of steps a-c for it and stop.
 3. From all alphas you simulated, including those eliminated in earlier loops, select the one with the highest `abs(Fitness)` as the best alpha. Run the BRAIN submission checks for it and save the results in `WORKDIR`.
@@ -35,9 +35,9 @@ Your task is to propose or refine an alpha. When refining an alpha, your propose
 
 ## Output
 
-Write `<WORKDIR>/alpha.md`. The `## Performance` section must include a table of year-by-year IS Fitness fetched from BRAIN `/alphas/<alpha_id>/recordsets/yearly-stats`.
+Write `<WORKDIR>/alpha.md` following the full format in `project_manual.md`. The `## Performance` section must include a table of year-by-year IS Fitness fetched from BRAIN `/alphas/<alpha_id>/recordsets/yearly-stats`.
 
-Afterward, write the shared notes file `alphas/notes.md`. Create it if absent, preserve existing entries, and record any pattern or insight that may help future proposers: which data fields or datasets worked well or poorly, what difficulties were encountered and how they were resolved, and any undocumented BRAIN API behavior. Keep each Markdown list item on one line; do not hard-wrap notes at a fixed column width.
+Afterward, write the shared notes file `alphas/notes.md`. Create it if absent, preserve existing entries, and record or update only issues not specific to this Alpha: local environment problems, undocumented WorldQuant API endpoints, WorldQuant API pitfalls, or bugs and ambiguous semantics in the project API Python code. Keep each Markdown list item on one line; do not hard-wrap notes at a fixed column width.
 
 Finally, briefly report: what you did, what difficulties you hit, how you resolved them (or didn't), and any open questions.
 
