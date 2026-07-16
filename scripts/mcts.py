@@ -80,7 +80,9 @@ def _state_lock():
 
 def _load_state() -> dict:
     with _state_path().open(encoding="utf-8") as f:
-        return json.load(f)
+        state = json.load(f)
+    state.pop("next_candidate_num", None)
+    return state
 
 
 def _save_state(state: dict) -> None:
@@ -122,7 +124,6 @@ def _initial_state(
 ) -> dict:
     return {
         "method": "alpha-mcts",
-        "next_candidate_num": 0,
         "config": {
             "ucb_c": ucb_c,
             "pw_k": pw_k,
@@ -133,13 +134,8 @@ def _initial_state(
 
 
 def _next_candidate_id(state: dict) -> str:
-    limit = state["next_candidate_num"] + len(state["nodes"]) + 1
-    while state["next_candidate_num"] < limit:
-        state["next_candidate_num"] += 1
-        cid = f"{state['next_candidate_num']:04d}"
-        if cid not in state["nodes"]:
-            return cid
-    raise RuntimeError("could not allocate a candidate id")
+    used = [int(cid) for cid in state["nodes"] if cid != ROOT_ID]
+    return f"{max(used, default=0) + 1:04d}"
 
 
 def _score_history(state: dict) -> list[float]:
