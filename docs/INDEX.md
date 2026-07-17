@@ -14,13 +14,9 @@
 
 ## 数据
 
-- [数据索引](data/INDEX.md) - 登记 14 个数据集及其详情文件，并汇总 USA、TOP3000、Delay 1 范围内 4367 个数据字段的多种格式。
-- [数据集原始数据](data/datasets.json) - 包含 14 个数据集的 ID、名称、说明、分类、覆盖率、字段数、使用统计、更新时间和关联论文的原始 JSON。
+- [数据索引](data/INDEX.md) - 登记 14 个数据集及其详情文件，并收录 USA、TOP3000、Delay 1 范围内 4367 个数据字段的完整 JSON。
 - [数据分类](data/categories.json) - 包含 7 个数据分类及其子分类的名称、数据集数、字段数、Alpha 数、用户数、价值评分和地区范围。
-- [数据字段目录](data/fields.md) - 按 14 个数据集分组列出 4367 个字段的 ID、类型、覆盖率和说明。
-- [数据字段 CSV](data/fields.csv) - 包含 4367 个字段的数据表，每行记录字段标识、说明、类型、数据集、分类、覆盖率、范围及使用统计。
 - [数据字段 JSON](data/fields.json) - 包含查询范围、字段总数和 4367 个字段对象，对象记录字段说明、分类、类型、覆盖率、使用统计及创建时间。
-- [数据字段 JSONL](data/fields.jsonl) - 每行一个字段对象，共 4367 行。
 
 ## 语法
 
@@ -33,9 +29,6 @@
 - [FAQ](factor-research/faqs.md) - 汇集 97 组有关 Alpha、数据、操作符、仿真、绩效与提交等主题的 BRAIN 问答。
 - [推荐阅读](factor-research/recommended-reading.md) - 收录 22 篇有关资产定价、股票收益预测、分析师、期权与机器学习等主题的论文链接。
 - [研究论文链接](factor-research/research-papers.json) - 包含 14 条 WorldQuant BRAIN 社区研究论文帖子的标题、类型和链接。
-- [课程原始数据](factor-research/video-courses.json) - 包含 16 个课程、69 个视频的元数据、简介和文字稿的原始 JSON。
-- [搜索目录](factor-research/search-catalog.json) - 按参考资料、教程、视频、推荐阅读、FAQ、活动和竞赛七类汇总 410 条搜索目录记录。
-- [搜索结果](factor-research/search-results.json) - 包含 25 个关键词在八类内容中的搜索响应、命中计数和条目结果。
 
 ## Tutorials
 

@@ -51,11 +51,23 @@ Folder 层级按文件相对于 `docs/` 的路径组成部分数量计算：
 
 能够通过 `INDEX.md` 的 section 和清晰文件名表达的分类，不应再增加中间目录。当前面向阅读的文件均应尽量放在 `docs/<section>/`，避免形成 `docs/<section>/<category>/`。
 
-### 6. 不重复
+### 6. 避免无意重复
 
-- 同一文件不得在多个 INDEX 中重复登记。
-- 多个文件包含相同或实质相同的信息时，INDEX 只保留其中最易读、最易访问的一份。
-- 文件格式本身不决定取舍，应根据内容的实际可读性和使用方式选择。
+- 同一文件原则上只在所属的一个 INDEX 中登记。
+- 对 Alpha 挖掘非常重要、需要在统一入口强调的文件，可以同时在 `docs/INDEX.md` 和所属的下级 `INDEX.md` 各登记一次，最多出现两次。
+- 上述例外必须是有意的重点强调，不得由格式副本、抓取产物或随意铺开链接造成。
+- 多个文件包含相同或实质相同的信息时，INDEX 只保留其中信息最完整且便于机器读取的一份。
+- 文件格式本身不决定取舍；应比较实际内容、信息完整性和机器可读性。
+
+当前明确允许在根 INDEX 和所属下级 INDEX 中重复登记的重点文件如下：
+
+- `docs/data/fields.json`
+- `docs/data/categories.json`
+- `docs/factor-research/faqs.md`
+- `docs/factor-research/recommended-reading.md`
+- `docs/factor-research/research-papers.json`
+- `docs/tutorials/alpha-examples-bronze-users.md`
+- `docs/tutorials/alpha-examples-silver-users.md`
 
 ### 7. 删除与 Alpha 无关的信息
 
@@ -83,10 +95,10 @@ Folder 层级按文件相对于 `docs/` 的路径组成部分数量计算：
    - `docs/manifest.json`
    - `docs/api/official-api-search.json`
    - `docs/api/official-page-status.json`
-4. 原始下载或机器可读副本：
+4. 原始下载或重复格式副本：
    - `docs/data/datasets.json`
+   - `docs/data/fields.md`
    - `docs/data/fields.csv`
-   - `docs/data/fields.json`
    - `docs/data/fields.jsonl`
    - `docs/syntax/operators.json`
    - `docs/factor-research/video-courses.json`
@@ -95,7 +107,7 @@ Folder 层级按文件相对于 `docs/` 的路径组成部分数量计算：
    - `docs/factor-research/search-catalog.json`
    - `docs/factor-research/search-results.json`
 
-API Schema、14 个数据集详情 JSON（例如 `docs/data/analyst4.json`）、`docs/data/categories.json` 和 `docs/factor-research/research-papers.json` 有直接使用价值，当前纳入规则检查。
+API Schema、`docs/data/fields.json`、14 个数据集详情 JSON（例如 `docs/data/analyst4.json`）、`docs/data/categories.json` 和 `docs/factor-research/research-papers.json` 有直接使用价值，当前纳入规则检查。
 
 若文件用途发生变化，或新增其他辅助文件，应明确更新本节后再重新检查，不能仅凭扩展名临时排除。
 
@@ -104,7 +116,7 @@ API Schema、14 个数据集详情 JSON（例如 `docs/data/analyst4.json`）、
 文档组织不再计算字符加权分或平均层级分。每次修改文档结构后，应逐项检查以下离散条件：
 
 - 所有适用文件均可从 `docs/INDEX.md` 到达。
-- 每个适用文件只在一个 INDEX 中登记。
+- 除明确用作重点强调的文件可在根 INDEX 和所属下级 INDEX 各登记一次外，不存在无意重复登记。
 - 每个 INDEX 条目都有符合要求的一句话 description。
 - 排除项没有出现在任何 INDEX 中。
 - 不存在损坏的本地链接。

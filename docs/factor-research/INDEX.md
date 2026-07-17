@@ -3,9 +3,6 @@
 - [FAQ](faqs.md) - 汇集 97 组有关 Alpha、数据、算子、仿真、绩效与提交等主题的 BRAIN 问答。
 - [推荐阅读](recommended-reading.md) - 收录 22 篇有关资产定价、股票收益预测、分析师、期权与机器学习等主题的论文链接。
 - [研究论文链接](research-papers.json) - 包含 14 条 WorldQuant BRAIN 社区研究论文帖子的标题、类型和链接。
-- [课程原始数据](video-courses.json) - 包含 16 个课程、69 个视频的元数据、简介和文字稿的原始 JSON。
-- [搜索目录](search-catalog.json) - 按参考资料、教程页、视频、推荐阅读、FAQ、活动和竞赛七类汇总的搜索目录，共 410 条。
-- [搜索结果](search-results.json) - 包含 25 个关键词在八类内容中的搜索响应、命中计数和条目结果。
 
 ## Quantcepts
 
