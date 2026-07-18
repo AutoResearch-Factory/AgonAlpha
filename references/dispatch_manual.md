@@ -1,6 +1,6 @@
 ## How to start a claude-*/codex subagent?
 
-本文档教你如何用命令行启动 claude (包括 claude-ds, claude-kimi, claude-codex 等变种, 接口一致) 和 codex 作为 subagents.
+本文档教你如何用命令行启动 claude (包括 claude-ds, claude-kimi 等变种, 接口一致) 和 codex 作为 subagents.
 
 首先你需要准备:
 - AGENT_PROMPT="${CLAUDE_PLUGIN_ROOT}/agents/${AGENT_NAME}.md": 会进入 subagent 的 system message
@@ -52,9 +52,9 @@ claude --dangerously-skip-permissions \
   -p "$TASK_PROMPT" > "$OUT"
 ```
 
-claude-* 是由各个不同公司 api 驱动的 claude code, 其接口与 claude 完全一致, 目前可用的有: claude-ds (deepseek v4 pro 驱动), claude-codex (gpt 驱动)
+claude-* 与 claude 接口完全一致, 目前可用: claude-ds, claude-kimi
 
 ## 注意
 
-- 不要在 CLI subagent 命令内部再加 `nohup` 或者 `&`。Claude Code 的 Bash background 已经是一层后台机制；启动 subagent 时，不要再用 `nohup` 或 `&`。
+- 调 agent 一律走 Bash background (run_in_background): 前台 Bash 有 10 分钟上限; 不要加 `nohup`/`&` —— nohup 下用不了 `claude-kimi`/`claude-ds` (它们是 .bashrc 函数).
 - `$OUT` 缺失/0 字节在这种情况下表示 report 还没交接，不是 subagent 失败。必须等待真正的 codex/claude-* 进程结束；禁止立即 retry。之前的教训: coder/gptpro-liaison 刚跑 30s 就去检查 `$OUT`，结果自然为空，以为是失败又重试，导致数个重复 subagent 打架。

@@ -3,4 +3,4 @@ model-routing-policy = "'|' 表示使用 Bresenham's line algorithm 分配 backe
 
 parallelism = 1 # Max concurrent runs
 alpha-proposer-model = "codex"
-alpha-reviewer-model = "codex"
+alpha-reviewer-model = "claude-kimi"
