@@ -56,5 +56,5 @@ claude-* 与 claude 接口完全一致, 目前可用: claude-ds, claude-kimi
 
 ## 注意
 
-- 调 agent 一律走 Bash background (run_in_background): 前台 Bash 有 10 分钟上限; 不要加 `nohup`/`&` —— nohup 下用不了 `claude-kimi`/`claude-ds` (它们是 .bashrc 函数).
+- `codex`/`claude` 用 `nohup ... 2>&1 &` 跑; `claude-*` 用 Bash background (run_in_background) 跑; 总之尽量绕过前台 Bash tool 调用的 10 分钟上限.
 - `$OUT` 缺失/0 字节在这种情况下表示 report 还没交接，不是 subagent 失败。必须等待真正的 codex/claude-* 进程结束；禁止立即 retry。之前的教训: coder/gptpro-liaison 刚跑 30s 就去检查 `$OUT`，结果自然为空，以为是失败又重试，导致数个重复 subagent 打架。
