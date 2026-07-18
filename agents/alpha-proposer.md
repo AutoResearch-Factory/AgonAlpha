@@ -24,7 +24,7 @@ Your task is to propose or refine an alpha. When refining an alpha, your propose
 1. If `ANCESTOR_REPORTS` is not `none`, think about where the ancestors succeeded, where they failed, and how to improve them. Propose 16 alpha candidates that may improve upon them. Otherwise, start fresh and brainstorm 16 new alpha candidates.
 2. Repeat the following loop. Use `LOOP_ID=1` for the first pass and increment it for every later pass; never reset it during this task.
   a. Devise and run local tests for each alpha.
-  b. Simulate each alpha on WorldQuant BRAIN and save the simulation settings and results in `WORKDIR`.
+  b. Simulate each alpha on WorldQuant BRAIN and save the simulation settings and results in `WORKDIR`. Drop any whose self-correlation with a submitted alpha exceeds 0.80.
   c. Name every resulting BRAIN alpha `{CANDIDATE_ID}-{LOOP_ID}-{SLUG}`, where `CANDIDATE_ID` is the final component of `WORKDIR` and `SLUG` is a unique, concise, lowercase kebab-case description.
   d. Rank the alphas by `abs(Fitness)` and eliminate the bottom half. If the number is odd, eliminate `floor(n/2)` alphas.
   e. Find ways to improve the surviving alphas; if a survivor has negative Fitness, first negate its outermost expression without running an extra Simulation.
