@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+/settings.toml
+
+# Local evaluator configuration and private research material
+/docs/
+/references/evaluator.md
+/references/*api-spec.md
+
+/alphas/**
+!/alphas/.gitkeep

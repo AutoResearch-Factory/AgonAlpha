@@ -1,0 +1,8 @@
+{
+  "name": "agonalpha",
+  "description": "Agentic orchestration for reproducible quantitative alpha discovery",
+  "version": "0.1.0",
+  "author": {
+    "name": "Youran Sun"
+  }
+}

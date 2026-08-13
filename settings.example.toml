@@ -1,0 +1,6 @@
+# AgonAlpha local settings
+model-routing-policy = "'|' 表示使用 Bresenham's line algorithm 分配 backend/model, 保证长期比例纠偏到目标权重"
+
+parallelism = 1 # Max concurrent runs
+alpha-proposer-model = "codex"
+alpha-reviewer-model = "codex"
