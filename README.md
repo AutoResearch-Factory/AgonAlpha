@@ -1,5 +1,7 @@
 # AgonAlpha
 
+English | [中文](README_zh.md)
+
 AgonAlpha ([paper](https://arxiv.org/abs/2608.11250)) is an agentic framework for reproducible quantitative alpha discovery. It searches over complete research artifacts—hypotheses, executable expressions, evaluation evidence, rationales, and review status—while a Monte Carlo tree search (MCTS) scheduler allocates work across candidate lineages.
 
 The repository provides the orchestration layer. Data, credentials, evaluator integrations, generated candidates, and evaluation results remain local and are excluded from version control.
